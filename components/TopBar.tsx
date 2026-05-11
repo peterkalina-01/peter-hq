@@ -64,9 +64,8 @@ export default function TopBar() {
     <div className="sticky top-0 z-50 border-b border-border backdrop-blur-xl bg-bg/90">
       {/* Main nav row */}
       <div className="flex items-center justify-between px-4 md:px-6 py-3">
-        <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
-          <div className="w-8 h-8 bg-accent rounded-[8px] flex items-center justify-center font-extrabold text-[16px] text-bg">P</div>
-          <div className="hidden sm:flex flex-col leading-tight">
+        <Link href="/" className="flex items-center flex-shrink-0">
+          <div className="flex flex-col leading-tight">
             <div className="text-[14px] font-bold tracking-tight">Peter HQ</div>
             <div className="text-[10px] text-text-dim">LeadsFlow Media</div>
           </div>

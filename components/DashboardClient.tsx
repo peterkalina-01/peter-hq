@@ -181,7 +181,7 @@ function DatesTracker() {
       <div className="h-1 bg-bg-elev rounded-full overflow-hidden mb-3">
         <div className="h-full rounded-full transition-all" style={{ width: `${Math.min((minutes / 300) * 100, 100)}%`, background: '#a78bfa' }}/>
       </div>
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-4 gap-1.5 mb-2">
         {[30, 60, 90, 120].map(m => (
           <button key={m} onClick={() => setMinutes(prev => prev + m)}
             className="py-2 bg-bg-elev rounded-lg text-[11px] font-bold text-text-dim hover:text-violet border border-border transition-all">
@@ -189,6 +189,11 @@ function DatesTracker() {
           </button>
         ))}
       </div>
+      <button
+        onClick={() => setMinutes(prev => Math.max(0, prev - 30))}
+        className="w-full py-2 bg-bg-elev rounded-lg text-[11px] font-bold text-text-dim hover:text-rose border border-border transition-all">
+        − 30min
+      </button>
     </div>
   );
 }
