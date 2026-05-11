@@ -8,6 +8,7 @@ const items = [
   { href: '/personal', label: 'Osobné', icon: '◉' },
   { href: '/business', label: 'Biznis', icon: '▲' },
   { href: '/finance', label: '$', icon: '$' },
+  { href: '/report', label: 'Report', icon: '◈' },
   { href: '/mentor', label: 'Mentor', icon: '✦' },
 ];
 
@@ -19,15 +20,10 @@ export default function MobileNav() {
         {items.map((item) => {
           const active = pathname === item.href;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all ${
-                active ? 'text-accent' : 'text-text-dim'
-              }`}
-            >
-              <span className="text-base font-bold">{item.icon}</span>
-              <span className="text-[10px] font-semibold">{item.label}</span>
+            <Link key={item.href} href={item.href}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-all ${active ? 'text-accent' : 'text-text-dim'}`}>
+              <span className="text-sm font-bold">{item.icon}</span>
+              <span className="text-[9px] font-semibold">{item.label}</span>
             </Link>
           );
         })}
