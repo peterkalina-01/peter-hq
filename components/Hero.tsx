@@ -1,5 +1,7 @@
 'use client';
 
+import { getDailyQuote } from '@/lib/quotes';
+
 const visionPoints = {
   Identity: [
     'I communicate with anyone, anywhere',
@@ -24,10 +26,7 @@ const visionPoints = {
   ],
 };
 
-const dailyQuote = {
-  text: 'Disciplína sa rovná slobode. Cesta, ktorou kráčaš dnes, stavia impérium, v ktorom budeš žiť zajtra.',
-  source: 'Denný citát · viazaný na tvoju víziu',
-};
+const dailyQuote = getDailyQuote();
 
 export default function Hero() {
   const hour = new Date().getHours();
@@ -60,7 +59,7 @@ export default function Hero() {
             <div className="text-[15px] leading-[1.5] mb-2 font-medium">
               „{dailyQuote.text}"
             </div>
-            <div className="text-[11px] text-text-dim font-medium">{dailyQuote.source}</div>
+            <div className="text-[11px] text-text-dim font-medium">— {dailyQuote.author} · Denný citát</div>
           </div>
         </div>
       </div>
