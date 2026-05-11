@@ -6,6 +6,8 @@
 
 * {
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 body {
@@ -17,14 +19,23 @@ body {
     radial-gradient(circle at 10% 0%, rgba(255, 120, 73, 0.06) 0%, transparent 35%),
     radial-gradient(circle at 90% 100%, rgba(200, 255, 0, 0.04) 0%, transparent 35%);
   min-height: 100vh;
+  /* Prevent text size adjustment on rotation */
+  -webkit-text-size-adjust: 100%;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #09090c; }
+/* Scrollbars */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #242430; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #32323f; }
 
-/* Range input styling */
+/* Hide scrollbar for horizontal scroll elements */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Safe area for iPhone notch / Dynamic Island */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Range input */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -33,12 +44,23 @@ input[type="range"] {
   background: #242430;
   outline: none;
 }
-
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #ff7849;
   cursor: pointer;
+}
+
+/* Prevent zoom on input focus (iOS) */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Better button tap area on mobile */
+@media (max-width: 768px) {
+  button {
+    min-height: 36px;
+  }
 }

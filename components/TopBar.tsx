@@ -14,15 +14,13 @@ const navItems = [
   { href: '/sales', label: 'Sales' },
 ];
 
-// Compact metric pill
 function MetricPill({ label, value, color = '#ff7849', alert = false }: {
   label: string; value: string; color?: string; alert?: boolean;
 }) {
   return (
-    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${alert ? 'bg-rose/10' : 'bg-bg-elev'} border ${alert ? 'border-rose/20' : 'border-border'}`}>
+    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0 ${alert ? 'bg-rose/10' : 'bg-bg-elev'} border ${alert ? 'border-rose/20' : 'border-border'}`}>
       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: alert ? '#ff5d7a' : color }} />
-      <span className="text-[10px] font-semibold text-text-dim uppercase tracking-wider hidden md:block">{label}</span>
-      <span className="text-xs font-bold" style={{ color: alert ? '#ff5d7a' : color }}>{value}</span>
+      <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: alert ? '#ff5d7a' : color }}>{value}</span>
     </div>
   );
 }
@@ -106,18 +104,16 @@ export default function TopBar() {
         </div>
       </div>
 
-      {/* Metrics strip */}
-      <div className="flex items-center gap-2 px-4 md:px-6 pb-2 overflow-x-auto scrollbar-hide">
-        <MetricPill label="Spánok" value="6h 42m · 78" color="#6db6ff" />
+      {/* Metrics strip - scrollable on mobile */}
+      <div className="flex items-center gap-1.5 px-3 md:px-6 pb-2 overflow-x-auto"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <MetricPill label="Spánok" value="6h·78" color="#6db6ff" />
         <MetricPill label="Workout" value="Push ✓" color="#ff7849" />
         <MetricPill label="Kofeín" value="143mg" color="#ff7849" />
         <MetricPill label="Work" value="3.5h" color="#c8ff00" />
-        <MetricPill label="Meditácia" value="20min ✓" color="#2dd4bf" />
+        <MetricPill label="Meditácia" value="✓" color="#2dd4bf" />
         <MetricPill label="MRR" value="$1K" color="#c8ff00" />
-        <MetricPill label="Calls" value="3 dnes" color="#a78bfa" />
-        <div className="ml-auto flex-shrink-0 text-[10px] text-text-dim font-medium whitespace-nowrap">
-          {new Date().toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </div>
+        <MetricPill label="Calls" value="3" color="#a78bfa" />
       </div>
     </div>
   );
