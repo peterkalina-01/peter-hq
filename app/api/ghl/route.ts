@@ -13,62 +13,78 @@ async function ghlFetch(path: string, apiKey: string) {
       'Version': '2021-07-28',
     },
   });
-  if (!res.ok) throw new Error(`GHL error: ${res.status}`);
+  if (!res.ok) throw new Error(`GHL ${res.status}: ${await res.text()}`);
   return res.json();
 }
 
 export async function GET() {
   const apiKey = process.env.GHL_API_KEY;
   const locationId = process.env.GHL_LOCATION_ID;
-
   if (!apiKey || !locationId) {
     return NextResponse.json({ error: 'GHL not configured' }, { status: 400 });
   }
 
   try {
-    // Get pipelines
+    // Get pipelines WITH stages
     const pipelinesData = await ghlFetch(`/opportunities/pipelines?locationId=${locationId}`, apiKey);
-    const pipelines = pipelinesData.pipelines || [];
+    const pipelines: { id: string; name: string; stages: { id: string; name: string }[] }[] =
+      pipelinesData.pipelines || [];
 
-    // Get all opportunities (deals)
-    const oppsData = await ghlFetch(`/opportunities/search?location_id=${locationId}&limit=50`, apiKey);
+    // Build stage map: stageId -> stageName
+    const stageMap: Record<string, string> = {};
+    for (const pipeline of pipelines) {
+      for (const stage of pipeline.stages || []) {
+        stageMap[stage.id] = stage.name;
+      }
+    }
+
+    // Get all opportunities
+    const oppsData = await ghlFetch(
+      `/opportunities/search?location_id=${locationId}&limit=100`,
+      apiKey
+    );
     const opportunities = oppsData.opportunities || [];
 
-    // Calculate pipeline value
-    const pipelineDeals = opportunities.map((opp: {
+    const deals = opportunities.map((opp: {
       id: string;
       name: string;
       status: string;
       monetaryValue?: number;
+      pipelineId?: string;
       pipelineStageId?: string;
-      contact?: { name?: string; email?: string };
+      contact?: { name?: string };
       updatedAt?: string;
     }) => ({
       id: opp.id,
       name: opp.name,
-      status: opp.status,
+      status: opp.status,          // open / won / lost / abandoned
       value: opp.monetaryValue || 0,
-      stage: opp.pipelineStageId,
+      pipelineId: opp.pipelineId || '',
+      stageId: opp.pipelineStageId || '',
+      stageName: stageMap[opp.pipelineStageId || ''] || opp.status || 'Unknown',
       contact: opp.contact?.name || '',
-      updatedAt: opp.updatedAt,
+      updatedAt: opp.updatedAt || '',
     }));
 
-    const totalPipelineValue = pipelineDeals
-      .filter((d: { status: string }) => d.status !== 'lost' && d.status !== 'won')
-      .reduce((sum: number, d: { value: number }) => sum + d.value, 0);
+    const activeDeals = deals.filter((d: { status: string }) => d.status === 'open');
+    const totalPipelineValue = activeDeals.reduce((s: number, d: { value: number }) => s + d.value, 0);
 
-    // Get contacts count
-    const contactsData = await ghlFetch(`/contacts/?locationId=${locationId}&limit=1`, apiKey);
+    // Group by stage
+    const byStage: Record<string, { stageName: string; deals: typeof deals; total: number }> = {};
+    for (const deal of activeDeals) {
+      if (!byStage[deal.stageId]) {
+        byStage[deal.stageId] = { stageName: deal.stageName, deals: [], total: 0 };
+      }
+      byStage[deal.stageId].deals.push(deal);
+      byStage[deal.stageId].total += deal.value;
+    }
+
+    // Contacts
+    const contactsData = await ghlFetch(`/contacts/?locationId=${locationId}&limit=1`, apiKey).catch(() => ({ total: 0 }));
     const totalContacts = contactsData.total || 0;
 
-    // Get recent appointments/calls
-    let appointments: {
-      id: string;
-      title: string;
-      status: string;
-      startTime: string;
-      contact?: string;
-    }[] = [];
+    // Appointments
+    let appointments: { id: string; title: string; status: string; startTime: string; contact: string }[] = [];
     try {
       const now = new Date();
       const weekAgo = new Date(now.getTime() - 7 * 24 * 3600000);
@@ -76,12 +92,8 @@ export async function GET() {
         `/calendars/events?locationId=${locationId}&startTime=${weekAgo.toISOString()}&endTime=${now.toISOString()}`,
         apiKey
       );
-      appointments = (apptData.events || []).slice(0, 10).map((e: {
-        id: string;
-        title?: string;
-        status?: string;
-        startTime?: string;
-        contact?: { name?: string };
+      appointments = (apptData.events || []).slice(0, 15).map((e: {
+        id: string; title?: string; status?: string; startTime?: string; contact?: { name?: string };
       }) => ({
         id: e.id,
         title: e.title || 'Call',
@@ -89,22 +101,22 @@ export async function GET() {
         startTime: e.startTime || '',
         contact: e.contact?.name || '',
       }));
-    } catch {
-      // Calendar endpoint might not be available
-    }
+    } catch { /* calendar optional */ }
 
     return NextResponse.json({
-      pipelines: pipelines.length,
-      deals: pipelineDeals,
+      deals,
+      activeDeals,
       totalPipelineValue,
+      byStage,
+      pipelines: pipelines.map(p => ({ id: p.id, name: p.name, stages: p.stages })),
       totalContacts,
       appointments,
-      wonDeals: pipelineDeals.filter((d: { status: string }) => d.status === 'won').length,
-      activDeals: pipelineDeals.filter((d: { status: string }) => d.status !== 'lost' && d.status !== 'won').length,
+      wonDeals: deals.filter((d: { status: string }) => d.status === 'won').length,
+      lostDeals: deals.filter((d: { status: string }) => d.status === 'lost').length,
     });
 
   } catch (error) {
-    console.error('GHL API error:', error);
+    console.error('GHL error:', error);
     return NextResponse.json({ error: 'GHL error', details: String(error) }, { status: 500 });
   }
 }

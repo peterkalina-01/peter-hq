@@ -2,50 +2,242 @@
 
 import TopBar from '@/components/TopBar';
 import MobileNav from '@/components/MobileNav';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+
+// ─── TYPES ───────────────────────────────────────────────────────────────────
+type GhlDeal = {
+  id: string; name: string; status: string; value: number;
+  stageId: string; stageName: string; contact: string;
+};
+type GhlData = {
+  activeDeals: GhlDeal[];
+  totalPipelineValue: number;
+  byStage: Record<string, { stageName: string; deals: GhlDeal[]; total: number }>;
+  totalContacts: number;
+  appointments: { id: string; title: string; status: string; startTime: string; contact: string }[];
+  wonDeals: number;
+};
+type StripeData = { mrr: number; revenue7d: number; activeCustomers: number };
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`bg-bg-card border border-border rounded-2xl p-5 ${className}`}>{children}</div>;
+}
 
 function SectionHeader({ title, meta }: { title: string; meta?: string }) {
   return (
-    <div className="flex items-baseline justify-between mb-5 mt-8 first:mt-0">
-      <h2 className="text-2xl font-bold tracking-[-0.025em]">{title}</h2>
+    <div className="flex items-baseline justify-between mb-4 mt-7 first:mt-0">
+      <h2 className="text-xl font-bold tracking-[-0.025em]">{title}</h2>
       {meta && <div className="text-xs text-text-dim font-medium">{meta}</div>}
     </div>
   );
 }
 
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+// Inline editable number — click to override
+function Editable({ value, onSave, className = '', prefix = '', suffix = '', overridden = false }: {
+  value: string | number; onSave: (v: string) => void;
+  className?: string; prefix?: string; suffix?: string; overridden?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState('');
+  const ref = useRef<HTMLInputElement>(null);
+
+  const start = () => { setInput(String(value)); setEditing(true); setTimeout(() => ref.current?.select(), 30); };
+  const save = () => { if (input.trim()) onSave(input.trim()); setEditing(false); };
+
+  if (editing) return (
+    <span className="inline-flex items-center gap-0.5">
+      {prefix}
+      <input ref={ref} value={input} onChange={e => setInput(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
+        onBlur={save}
+        className="bg-bg-elev border border-accent rounded px-1.5 text-accent font-bold outline-none"
+        style={{ width: `${Math.max(input.length + 1, 3)}ch`, fontSize: 'inherit' }}
+      />
+      {suffix}
+    </span>
+  );
+
   return (
-    <div className={`bg-bg-card border border-border rounded-2xl p-6 ${className}`}>
-      {children}
+    <span onClick={start} title="Klikni pre manuálnu úpravu" className={`cursor-pointer relative group ${className}`}>
+      {overridden && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-warm rounded-full"/>}
+      {prefix}{value}{suffix}
+      <span className="absolute -top-6 left-0 hidden group-hover:block text-[9px] bg-bg-elev border border-border px-2 py-0.5 rounded text-text-dim whitespace-nowrap z-20">✏ klikni pre úpravu</span>
+    </span>
+  );
+}
+
+function useOv(key: string, real: number) {
+  const [v, setV] = useState(real);
+  const [ov, setOv] = useState(false);
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem(`biz_${key}`);
+      if (s !== null) { setV(JSON.parse(s)); setOv(true); } else setV(real);
+    } catch {}
+  }, [key, real]);
+  const save = (str: string) => {
+    const n = parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
+    setV(n); setOv(true);
+    try { localStorage.setItem(`biz_${key}`, JSON.stringify(n)); } catch {};
+  };
+  const clear = () => { setV(real); setOv(false); try { localStorage.removeItem(`biz_${key}`); } catch {} };
+  return { v, ov, save, clear };
+}
+
+// ─── PIPELINE WITH STAGES ────────────────────────────────────────────────────
+function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean }) {
+  const stageColors = ['#ff7849', '#c8ff00', '#6db6ff', '#a78bfa', '#2dd4bf', '#ff5d7a', '#4ade80'];
+  const totalOv = useOv('pipeline_total', ghl?.totalPipelineValue || 0);
+
+  if (loading) return <Card><div className="text-xs text-text-dim animate-pulse py-4 text-center">Načítavam pipeline z GHL...</div></Card>;
+
+  if (!ghl || !ghl.activeDeals?.length) return (
+    <Card>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-bold">Pipeline</h3>
+        <span className="text-xs text-text-dim">GHL nedostupný</span>
+      </div>
+      <div className="text-xs text-text-dim text-center py-4">Žiadne aktívne deals · skontroluj GHL key</div>
+    </Card>
+  );
+
+  const stages = Object.entries(ghl.byStage);
+
+  return (
+    <div className="space-y-3">
+      {/* Total */}
+      <div className="flex justify-between items-center px-1">
+        <span className="text-xs font-bold text-text-dim uppercase tracking-wider">Pipeline celkom</span>
+        <Editable
+          value={`$${Number(totalOv.v).toLocaleString()}`}
+          onSave={totalOv.save}
+          overridden={totalOv.ov}
+          className="text-base font-bold text-accent"
+        />
+      </div>
+
+      {/* By stage */}
+      {stages.map(([stageId, stage], idx) => (
+        <Card key={stageId} className="p-4">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: stageColors[idx % stageColors.length] }}/>
+              <span className="text-sm font-bold">{stage.stageName}</span>
+              <span className="text-xs text-text-dim">{stage.deals.length} deal{stage.deals.length !== 1 ? 's' : ''}</span>
+            </div>
+            <span className="text-sm font-bold" style={{ color: stageColors[idx % stageColors.length] }}>
+              ${stage.total.toLocaleString()}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {stage.deals.map(deal => {
+              const dealOv = useOv(`deal_${deal.id}`, deal.value); // eslint-disable-line
+              return (
+                <div key={deal.id} className="flex justify-between items-center p-2.5 bg-bg-elev rounded-lg">
+                  <div className="min-w-0 mr-3">
+                    <div className="text-xs font-semibold truncate">{deal.name}</div>
+                    {deal.contact && <div className="text-[10px] text-text-dim truncate">{deal.contact}</div>}
+                  </div>
+                  <Editable
+                    value={`$${Number(dealOv.v).toLocaleString()}`}
+                    onSave={dealOv.save}
+                    overridden={dealOv.ov}
+                    className="text-sm font-bold flex-shrink-0"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }
 
-// GOALS
-function Goals() {
+// ─── CALLS ───────────────────────────────────────────────────────────────────
+function CallsSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean }) {
+  const weekOv = useOv('calls_week', ghl?.appointments?.length || 0);
+  const wonOv = useOv('calls_won', ghl?.wonDeals || 0);
+  const rateOv = useOv('close_rate', ghl && ghl.appointments?.length ? Math.round((ghl.wonDeals / Math.max(ghl.appointments.length, 1)) * 100) : 0);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-      {[
-        { label: 'MRR', current: 1000, goal: 30000, color: '#c8ff00', prefix: '$', suffix: '', note: 'Zostáva $29,000 · cieľ 2027' },
-        { label: 'Aktívni klienti', current: 2, goal: 10, color: '#6db6ff', prefix: '', suffix: '', note: '8 klientov zostáva' },
-        { label: 'Close rate', current: 28, goal: 40, color: '#ff7849', prefix: '', suffix: '%', note: 'Priemer z posledných 30 callov' },
-        { label: 'Weekly calls', current: 14, goal: 25, color: '#4ade80', prefix: '', suffix: '', note: 'Tento týždeň' },
-      ].map(g => {
-        const pct = Math.min((g.current / g.goal) * 100, 100);
+    <Card>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-bold">Cally</h3>
+        <span className="text-xs text-text-dim">{loading ? 'Načítavam...' : ghl ? '✓ GHL live' : 'GHL nedostupný'}</span>
+      </div>
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        {[
+          { lbl: 'Tento týždeň', v: weekOv.v, save: weekOv.save, ov: weekOv.ov },
+          { lbl: 'Closed', v: wonOv.v, save: wonOv.save, ov: wonOv.ov, color: 'text-accent' },
+          { lbl: 'Close rate', v: rateOv.v, save: rateOv.save, ov: rateOv.ov, suffix: '%' },
+        ].map(s => (
+          <div key={s.lbl} className="bg-bg-elev rounded-xl p-3">
+            <Editable value={s.v} onSave={s.save} overridden={s.ov} suffix={s.suffix || ''}
+              className={`text-xl font-bold tracking-tight block mb-0.5 ${s.color || ''}`}/>
+            <div className="text-[10px] text-text-dim">{s.lbl}</div>
+          </div>
+        ))}
+      </div>
+
+      {ghl?.appointments?.length ? (
+        <div className="space-y-0">
+          {ghl.appointments.slice(0, 6).map((a, i) => (
+            <div key={i} className="flex justify-between items-center py-2.5 border-b border-white/[0.04] last:border-b-0 text-xs">
+              <div>
+                <div className="font-semibold">{a.title}</div>
+                <div className="text-text-dim">{a.contact} · {a.startTime ? new Date(a.startTime).toLocaleDateString('sk-SK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+              </div>
+              <span className={`px-2 py-0.5 rounded font-bold ${a.status === 'confirmed' ? 'bg-accent/10 text-accent' : a.status === 'cancelled' ? 'bg-rose/10 text-rose' : 'bg-bg-elev text-text-dim'}`}>
+                {a.status || 'pending'}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-text-dim text-center py-3">
+          {loading ? 'Načítavam cally...' : 'Žiadne cally tento týždeň'}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── GOALS ───────────────────────────────────────────────────────────────────
+function Goals({ stripe, ghl }: { stripe: StripeData | null; ghl: GhlData | null }) {
+  const mrrOv = useOv('goal_mrr', stripe?.mrr || 0);
+  const clientsOv = useOv('goal_clients', stripe?.activeCustomers || 0);
+  const rateOv = useOv('goal_rate', ghl ? Math.round((ghl.wonDeals / Math.max(ghl.appointments?.length || 1, 1)) * 100) : 0);
+  const callsOv = useOv('goal_calls', ghl?.appointments?.length || 0);
+
+  const goals = [
+    { label: 'MRR', ov: mrrOv, goal: 30000, prefix: '$', suffix: '', note: `Zostáva $${(30000 - mrrOv.v).toLocaleString()}`, color: '#c8ff00' },
+    { label: 'Aktívni klienti', ov: clientsOv, goal: 10, prefix: '', suffix: '', note: `${10 - clientsOv.v} zostáva`, color: '#6db6ff' },
+    { label: 'Close rate', ov: rateOv, goal: 40, prefix: '', suffix: '%', note: 'Cieľ 40%', color: '#ff7849' },
+    { label: 'Weekly calls', ov: callsOv, goal: 25, prefix: '', suffix: '', note: 'Cieľ 25/týždeň', color: '#4ade80' },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {goals.map(g => {
+        const pct = Math.min((g.ov.v / g.goal) * 100, 100);
         return (
-          <div key={g.label} className="bg-bg-card border border-border rounded-2xl p-5">
-            <div className="flex justify-between items-start mb-3">
+          <div key={g.label} className="bg-bg-elev border border-border rounded-xl p-4">
+            <div className="flex justify-between items-start mb-2">
               <span className="text-xs font-bold text-text-dim uppercase tracking-wider">{g.label}</span>
               <span className="text-xs font-bold" style={{ color: g.color }}>{pct.toFixed(0)}%</span>
             </div>
             <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-3xl font-bold tracking-[-0.03em]">{g.prefix}{g.current.toLocaleString()}{g.suffix}</span>
-              <span className="text-sm text-text-dim font-medium">/ {g.prefix}{g.goal.toLocaleString()}{g.suffix}</span>
+              <Editable value={`${g.prefix}${Number(g.ov.v).toLocaleString()}${g.suffix}`} onSave={g.ov.save} overridden={g.ov.ov}
+                className="text-2xl font-bold tracking-tight"/>
+              <span className="text-sm text-text-dim">/ {g.prefix}{g.goal.toLocaleString()}{g.suffix}</span>
             </div>
-            <div className="h-1.5 bg-bg-elev rounded-full overflow-hidden my-3">
-              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: g.color }} />
+            <div className="h-1.5 bg-bg-card rounded-full overflow-hidden my-2">
+              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: g.color }}/>
             </div>
-            <div className="text-xs text-text-dim font-medium">{g.note}</div>
+            <div className="text-xs text-text-dim">{g.note}</div>
           </div>
         );
       })}
@@ -53,162 +245,24 @@ function Goals() {
   );
 }
 
-// PIPELINE
-function Pipeline() {
-  const [deals, setDeals] = useState([
-    { name: 'Lonestar Land Group', status: 'Hot', meta: 'Proposal sent · 3 dni', value: 3400, stage: 'hot' },
-    { name: 'Cypress Tree Pro', status: 'Warm', meta: '2. call · piatok', value: 2400, stage: 'warm' },
-    { name: 'Brushhog Brothers', status: 'Warm', meta: 'Čaká referencie', value: 1800, stage: 'warm' },
-    { name: 'Iron Oak Excavation', status: 'Cold', meta: '1. kontakt', value: 800, stage: 'cold' },
-  ]);
-
-  const stageColor: Record<string, string> = {
-    hot: 'border-l-accent',
-    warm: 'border-l-warm',
-    cold: 'border-l-cool',
-    closed: 'border-l-green2',
-  };
-
-  const total = deals.reduce((a, b) => a + b.value, 0);
-
-  return (
-    <Card>
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="text-lg font-bold tracking-[-0.02em]">Pipeline</h3>
-        <span className="text-sm font-bold text-accent">${total.toLocaleString()}</span>
-      </div>
-      <div className="space-y-3">
-        {deals.map((d, i) => (
-          <div key={i} className={`flex justify-between items-center p-4 bg-bg-elev rounded-xl border-l-[3px] ${stageColor[d.stage]}`}>
-            <div>
-              <div className="text-sm font-semibold mb-0.5">{d.name}</div>
-              <div className="text-xs text-text-dim font-medium">{d.status} · {d.meta}</div>
-            </div>
-            <div className="text-base font-bold text-accent">${d.value.toLocaleString()}</div>
-          </div>
-        ))}
-      </div>
-      <button className="w-full mt-4 py-2.5 bg-bg-elev border border-dashed border-border-strong rounded-xl text-xs font-bold text-text-dim hover:border-accent hover:text-accent transition-all">
-        + Pridať deal
-      </button>
-    </Card>
-  );
-}
-
-// CALLS
-function Calls() {
-  const calls = [
-    { name: 'Texas Land Co', time: '11:00', score: 87, grade: 'A', outcome: 'Follow-up' },
-    { name: 'Pine Ridge Clearing', time: '14:00', score: 71, grade: 'B', outcome: 'Proposal' },
-    { name: 'DeepRoot Services', time: '16:30', score: 82, grade: 'A', outcome: 'Closed ✓' },
-  ];
-
-  return (
-    <Card>
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="text-lg font-bold tracking-[-0.02em]">Cally</h3>
-        <span className="text-xs text-text-dim font-medium">Dnes 3 · Zajtra 2</span>
-      </div>
-      <div className="grid grid-cols-3 gap-3 mb-5 pb-5 border-b border-border">
-        {[
-          { num: '14', lbl: 'Tento týždeň' },
-          { num: '4', lbl: 'Closed', color: 'text-accent' },
-          { num: '28%', lbl: 'Close rate' },
-        ].map(s => (
-          <div key={s.lbl}>
-            <div className={`text-2xl font-bold tracking-[-0.025em] mb-1 ${s.color || ''}`}>{s.num}</div>
-            <div className="text-xs text-text-dim font-semibold">{s.lbl}</div>
-          </div>
-        ))}
-      </div>
-      <div className="space-y-0">
-        {calls.map((c, i) => (
-          <div key={i} className="flex justify-between items-center py-3 border-b border-white/[0.04] last:border-b-0">
-            <div>
-              <div className="text-sm font-semibold">{c.name}</div>
-              <div className="text-xs text-text-dim font-medium">{c.time} · {c.outcome}</div>
-            </div>
-            <span className={`text-xs px-2 py-1 rounded font-bold ${c.grade === 'A' ? 'bg-accent/12 text-accent' : 'bg-warm/12 text-warm'}`}>
-              {c.grade} · {c.score}
-            </span>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-// ADS
-function Ads() {
-  const campaigns = [
-    { name: 'Land Clearing TX — Hook #1', spend: 420, leads: 12, cpl: 35, roas: 3.8, status: 'active' },
-    { name: 'Land Clearing TX — Hook #2', spend: 280, leads: 6, cpl: 47, roas: 2.4, status: 'active' },
-    { name: 'Land Clearing FL — Test', spend: 180, leads: 3, cpl: 60, roas: 1.9, status: 'paused' },
-  ];
-
-  return (
-    <Card>
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="text-lg font-bold tracking-[-0.02em]">Meta Ads</h3>
-        <span className="text-xs font-semibold px-2 py-1 rounded-md bg-bg-elev text-text-dim">Pripoj Meta Ads</span>
-      </div>
-      <div className="grid grid-cols-4 gap-3 mb-5 pb-5 border-b border-border text-center">
-        {[
-          { lbl: 'Spend', val: '$880' },
-          { lbl: 'Leads', val: '21' },
-          { lbl: 'CPL', val: '$41.9' },
-          { lbl: 'ROAS', val: '3.1×' },
-        ].map(s => (
-          <div key={s.lbl}>
-            <div className="text-xl font-bold tracking-[-0.025em] mb-1">{s.val}</div>
-            <div className="text-xs text-text-dim font-semibold">{s.lbl}</div>
-          </div>
-        ))}
-      </div>
-      <div className="space-y-3">
-        {campaigns.map((c, i) => (
-          <div key={i} className="p-3.5 bg-bg-elev rounded-xl">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-xs font-semibold">{c.name}</span>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${c.status === 'active' ? 'bg-accent/10 text-accent' : 'bg-bg-card text-text-dim'}`}>
-                {c.status === 'active' ? 'Live' : 'Paused'}
-              </span>
-            </div>
-            <div className="grid grid-cols-4 gap-2 text-xs">
-              <div><span className="text-text-dim">Spend</span><br /><span className="font-bold">${c.spend}</span></div>
-              <div><span className="text-text-dim">Leads</span><br /><span className="font-bold">{c.leads}</span></div>
-              <div><span className="text-text-dim">CPL</span><br /><span className="font-bold">${c.cpl}</span></div>
-              <div><span className="text-text-dim">ROAS</span><br /><span className="font-bold">{c.roas}×</span></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-// DAILY TASKS
+// ─── DAILY TASKS ─────────────────────────────────────────────────────────────
 function DailyTasks() {
   const [tasks, setTasks] = useState([
-    { text: 'Outreach · 30 land clearing firiem', tag: 'Growth', done: true },
-    { text: '$40 into ads · skontrolovať kampane', tag: 'Ads', done: true },
-    { text: 'Follow-up · Lonestar Land Group', tag: 'Pipeline', done: false },
+    { text: 'Outreach · 30 land clearing firiem', tag: 'Growth', done: false },
+    { text: '$40 into ads · skontrolovať kampane', tag: 'Ads', done: false },
     { text: 'Napísať 3 nové UGC hooky', tag: 'Content', done: false },
     { text: 'Roleplay session · 2×', tag: 'Sales', done: false },
-    { text: 'Aktualizovať case study · Pine Ridge', tag: 'Content', done: false },
   ]);
-
   const [newTask, setNewTask] = useState('');
 
-  const toggle = (i: number) => {
-    const copy = [...tasks];
-    copy[i].done = !copy[i].done;
-    setTasks(copy);
+  const tagColors: Record<string, string> = {
+    Growth: '#c8ff00', Ads: '#ff7849', Pipeline: '#6db6ff',
+    Content: '#a78bfa', Sales: '#2dd4bf', Task: '#888894',
   };
 
   const add = () => {
     if (!newTask.trim()) return;
-    setTasks(prev => [...prev, { text: newTask, tag: 'Task', done: false }]);
+    setTasks(prev => [...prev, { text: newTask.trim(), tag: 'Task', done: false }]);
     setNewTask('');
   };
 
@@ -216,178 +270,108 @@ function DailyTasks() {
 
   return (
     <Card>
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="text-lg font-bold tracking-[-0.02em]">Denné tasky</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-bold">Úlohy · dnes</h3>
         <span className={`text-xs font-bold px-2 py-1 rounded-md ${done === tasks.length ? 'bg-accent/10 text-accent' : 'bg-bg-elev text-text-dim'}`}>
           {done} / {tasks.length}
         </span>
       </div>
       <div className="space-y-0 mb-4">
         {tasks.map((t, i) => (
-          <button key={i} onClick={() => toggle(i)} className="w-full flex gap-3 py-3 border-b border-white/[0.04] last:border-b-0 items-center text-left">
-            <div className={`w-[18px] h-[18px] border-[1.5px] rounded-md flex-shrink-0 relative transition-all ${t.done ? 'bg-accent border-accent' : 'border-border-strong'}`}>
-              {t.done && <span className="absolute inset-0 flex items-center justify-center text-bg text-[11px] font-extrabold">✓</span>}
+          <button key={i} onClick={() => setTasks(prev => { const c = [...prev]; c[i].done = !c[i].done; return c; })}
+            className="w-full flex items-center gap-3 py-3 border-b border-white/[0.04] last:border-b-0 text-left">
+            <div className={`w-4 h-4 rounded border-[1.5px] flex-shrink-0 relative transition-all ${t.done ? 'bg-accent border-accent' : 'border-border-strong'}`}>
+              {t.done && <span className="absolute inset-0 flex items-center justify-center text-bg text-[10px] font-extrabold">✓</span>}
             </div>
             <span className={`flex-1 text-sm font-medium ${t.done ? 'line-through text-text-subtle' : ''}`}>{t.text}</span>
-            <span className="text-[10px] text-text-dim font-bold px-2 py-1 bg-bg-elev rounded">{t.tag}</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: tagColors[t.tag] || '#888', background: `${tagColors[t.tag] || '#888'}18` }}>
+              {t.tag}
+            </span>
           </button>
         ))}
       </div>
       <div className="flex gap-2">
-        <input
-          type="text"
-          placeholder="Pridať task..."
-          value={newTask}
-          onChange={e => setNewTask(e.target.value)}
+        <input value={newTask} onChange={e => setNewTask(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && add()}
-          className="flex-1 bg-bg-elev border border-border rounded-xl px-4 py-2.5 text-sm font-medium outline-none focus:border-accent transition-colors text-text placeholder:text-text-dim font-[inherit]"
-        />
-        <button onClick={add} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-accent-dim transition-colors">+</button>
+          placeholder="Nová úloha..."
+          className="flex-1 bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none focus:border-accent text-text placeholder:text-text-dim font-[inherit]"/>
+        <button onClick={add} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold">+</button>
       </div>
     </Card>
   );
 }
 
-// SCRIPTS TRACKER
+// ─── SCRIPTS TRACKER ─────────────────────────────────────────────────────────
 function ScriptsTracker() {
-  const [sessions, setSessions] = useState([
-    { type: 'Roleplay', profile: 'Skeptický prospekt', date: 'Dnes 11:00', score: 82 },
-    { type: 'Script review', profile: 'Hook framework #3', date: 'Včera', score: null },
-    { type: 'Roleplay', profile: 'Cenovo citlivý', date: 'Včera', score: 74 },
-  ]);
-
+  const scripts = [
+    { name: 'Land Clearing · Hook A', status: 'Live', ctr: '2.4%', color: '#c8ff00' },
+    { name: 'Land Clearing · Hook B', status: 'Testing', ctr: '1.8%', color: '#ff7849' },
+    { name: 'Tree Service · Hook A', status: 'Draft', ctr: '—', color: '#888894' },
+  ];
   return (
     <Card>
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="text-lg font-bold tracking-[-0.02em]">Skripty · Roleplay tracker</h3>
-        <span className="text-xs text-text-dim font-medium">7× tento týždeň</span>
-      </div>
+      <h3 className="text-lg font-bold mb-4">Scripty · tracker</h3>
       <div className="space-y-0">
-        {sessions.map((s, i) => (
+        {scripts.map((s, i) => (
           <div key={i} className="flex justify-between items-center py-3 border-b border-white/[0.04] last:border-b-0">
-            <div>
-              <div className="text-sm font-semibold">{s.type}</div>
-              <div className="text-xs text-text-dim font-medium">{s.profile} · {s.date}</div>
+            <div className="text-sm font-semibold">{s.name}</div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-text-dim">{s.ctr}</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ color: s.color, background: `${s.color}18` }}>{s.status}</span>
             </div>
-            {s.score ? (
-              <span className="text-xs px-2 py-1 rounded font-bold bg-accent/12 text-accent">{s.score}</span>
-            ) : (
-              <span className="text-xs px-2 py-1 rounded font-bold bg-bg-elev text-text-dim">Review</span>
-            )}
           </div>
         ))}
       </div>
-      <button className="w-full mt-4 py-2.5 bg-accent text-bg rounded-xl text-sm font-bold hover:bg-accent-dim transition-colors">
-        + Logovať session
-      </button>
     </Card>
   );
 }
 
-// UPGRADE TRACKER
-function UpgradeTracker() {
-  const [items, setItems] = useState([
-    { text: 'Pridať video testimonials na website', category: 'Marketing', priority: 'High', done: false },
-    { text: 'Automatizovať follow-up sekvenciu v GHL', category: 'Systém', priority: 'High', done: false },
-    { text: 'Vytvoriť onboarding dokument pre nových klientov', category: 'Ops', priority: 'Medium', done: true },
-    { text: 'Testovať nový hook formát — pain stack', category: 'Ads', priority: 'Medium', done: false },
-    { text: 'Spraviť case study video — Pine Ridge', category: 'Marketing', priority: 'Low', done: false },
-  ]);
-  const [newItem, setNewItem] = useState('');
-  const [newCat, setNewCat] = useState('Marketing');
-
-  const toggle = (i: number) => {
-    const copy = [...items];
-    copy[i].done = !copy[i].done;
-    setItems(copy);
-  };
-
-  const add = () => {
-    if (!newItem.trim()) return;
-    setItems(prev => [...prev, { text: newItem, category: newCat, priority: 'Medium', done: false }]);
-    setNewItem('');
-  };
-
-  const priorityColor: Record<string, string> = {
-    High: 'bg-rose/10 text-rose',
-    Medium: 'bg-warm/10 text-warm',
-    Low: 'bg-cool/10 text-cool',
-  };
-
-  return (
-    <Card>
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="text-lg font-bold tracking-[-0.02em]">Upgrady & Vylepšenia</h3>
-        <span className="text-xs text-text-dim font-medium">
-          {items.filter(i => !i.done).length} čaká
-        </span>
-      </div>
-      <div className="space-y-0 mb-4">
-        {items.map((it, i) => (
-          <button
-            key={i}
-            onClick={() => toggle(i)}
-            className="w-full flex gap-3 py-3 border-b border-white/[0.04] last:border-b-0 items-center text-left"
-          >
-            <div className={`w-[18px] h-[18px] border-[1.5px] rounded-md flex-shrink-0 relative transition-all ${it.done ? 'bg-accent border-accent' : 'border-border-strong'}`}>
-              {it.done && <span className="absolute inset-0 flex items-center justify-center text-bg text-[11px] font-extrabold">✓</span>}
-            </div>
-            <span className={`flex-1 text-sm font-medium ${it.done ? 'line-through text-text-subtle' : ''}`}>{it.text}</span>
-            <span className="text-[10px] font-bold px-2 py-1 bg-bg-elev rounded text-text-dim">{it.category}</span>
-            <span className={`text-[10px] font-bold px-2 py-1 rounded ${priorityColor[it.priority]}`}>{it.priority}</span>
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          placeholder="Nový upgrade / nápad..."
-          value={newItem}
-          onChange={e => setNewItem(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && add()}
-          className="flex-1 bg-bg-elev border border-border rounded-xl px-4 py-2.5 text-sm font-medium outline-none focus:border-accent transition-colors text-text placeholder:text-text-dim font-[inherit]"
-        />
-        <select
-          value={newCat}
-          onChange={e => setNewCat(e.target.value)}
-          className="bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"
-        >
-          {['Marketing', 'Systém', 'Ops', 'Ads', 'Sales', 'Tech', 'Iné'].map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-        <button onClick={add} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-accent-dim transition-colors">+</button>
-      </div>
-    </Card>
-  );
-}
-
+// ─── PAGE ─────────────────────────────────────────────────────────────────────
 export default function BusinessPage() {
+  const [ghl, setGhl] = useState<GhlData | null>(null);
+  const [stripe, setStripe] = useState<StripeData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/ghl').then(r => r.json()).catch(() => null),
+      fetch('/api/stripe').then(r => r.json()).catch(() => null),
+    ]).then(([g, s]) => {
+      if (g && !g.error) setGhl(g);
+      if (s && !s.error) setStripe(s);
+      setLoading(false);
+    });
+  }, []);
+
   return (
     <>
       <TopBar />
-      <main className="px-4 md:px-8 py-6 md:py-8 max-w-[1400px] mx-auto pb-24 lg:pb-8">
+      <main className="px-4 md:px-6 py-5 max-w-[1400px] mx-auto pb-24 lg:pb-6">
 
-        <SectionHeader title="Ciele" meta="MRR · Klienti · Výkon" />
-        <Goals />
-
-        <SectionHeader title="Pipeline · Cally" meta="GHL live" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <Pipeline />
-          <Calls />
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-[-0.03em]">Biznis</h1>
+            <p className="text-xs text-text-dim mt-1">
+              {loading ? 'Načítavam...' : `${ghl ? '✓ GHL' : '⚠ GHL'} · ${stripe ? '✓ Stripe' : '⚠ Stripe'}`}
+              <span className="ml-2 text-text-subtle">· Klikni na číslo pre manuálnu úpravu</span>
+            </p>
+          </div>
         </div>
 
-        <SectionHeader title="Meta Ads" meta="Kampane · Spend · ROAS" />
-        <Ads />
+        <SectionHeader title="Ciele" meta="Klikni na číslo → úprava"/>
+        <Goals stripe={stripe} ghl={ghl}/>
 
-        <SectionHeader title="Denné tasky" meta="Čo posunie firmu vpred" />
-        <DailyTasks />
+        <SectionHeader title="Pipeline · GHL" meta={ghl ? `${ghl.activeDeals?.length || 0} aktívnych deals` : 'načítavam...'}/>
+        <PipelineSection ghl={ghl} loading={loading}/>
 
-        <SectionHeader title="Sales tréning" meta="Skripty · Roleplay · Sessions" />
-        <ScriptsTracker />
+        <SectionHeader title="Cally · GHL" meta={ghl?.appointments?.length ? `${ghl.appointments.length} tento týždeň` : ''}/>
+        <CallsSection ghl={ghl} loading={loading}/>
 
-        <SectionHeader title="Upgrady & Vylepšenia" meta="Nápady na zlepšenie firmy" />
-        <UpgradeTracker />
+        <SectionHeader title="Úlohy · dnes"/>
+        <DailyTasks/>
+
+        <SectionHeader title="Scripty"/>
+        <ScriptsTracker/>
 
       </main>
       <MobileNav />

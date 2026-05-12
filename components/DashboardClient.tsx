@@ -343,7 +343,7 @@ export default function DashboardClient() {
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-[-0.03em] mb-1">
                 {greeting}, <span className="text-accent">Peter.</span>
               </h1>
-              <p className="text-text-dim text-xs sm:text-sm font-medium mb-4">Spal si 6h 42min · Recovery 78</p>
+              <p className="text-text-dim text-xs sm:text-sm font-medium mb-4">Garmin sync čoskoro · recovery —</p>
               <div className="border-l-2 border-accent pl-3 py-0.5">
                 <p className="text-xs sm:text-sm font-medium leading-relaxed text-text/85 mb-1 line-clamp-3">„{quote.text}"</p>
                 <p className="text-[10px] text-text-dim">— {quote.author}</p>
@@ -376,11 +376,13 @@ export default function DashboardClient() {
         {/* ── RINGS ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <div className="bg-bg-card border border-border rounded-2xl p-3 sm:p-4 flex items-center gap-3">
-            <Ring pct={78} color="#6db6ff" size={60} stroke={5}><span className="text-sm font-bold text-cool">78</span></Ring>
+            <Ring pct={0} color="#6db6ff" size={60} stroke={5}>
+              <span className="text-[10px] font-bold text-text-dim">—</span>
+            </Ring>
             <div className="min-w-0">
               <div className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Spánok</div>
-              <div className="text-sm font-bold">6h 42m</div>
-              <div className="text-[10px] text-text-dim leading-tight">Deep 1h28<br/>REM 1h12</div>
+              <div className="text-sm font-bold text-text-dim">Garmin</div>
+              <div className="text-[10px] text-text-subtle leading-tight">čoskoro</div>
             </div>
           </div>
 
@@ -512,7 +514,7 @@ export default function DashboardClient() {
             <div className="space-y-1">
               <ActivityRow label="Meditácia" done={!!dailyLog.meditation_done} meta="Cieľ: 20min" color="#2dd4bf"
                 onToggle={val => toggleActivity('meditation_done', val)}/>
-              <ActivityRow label="Workout" done={!!dailyLog.workout_done} meta="Push day" color="#ff7849"
+              <ActivityRow label="Workout" done={!!dailyLog.workout_done} meta="Zaškrtni keď hotovo" color="#ff7849"
                 onToggle={val => toggleActivity('workout_done', val)}/>
               <ActivityRow label="Beh" done={!!dailyLog.run_done} meta="Garmin" color="#c8ff00"
                 onToggle={val => toggleActivity('run_done', val)}/>

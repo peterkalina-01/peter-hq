@@ -106,13 +106,11 @@ export default function TopBar() {
       {/* Metrics strip - scrollable on mobile */}
       <div className="flex items-center gap-1.5 px-3 md:px-6 pb-2 overflow-x-auto"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        <MetricPill label="Spánok" value="6h·78" color="#6db6ff" />
-        <MetricPill label="Workout" value="Push ✓" color="#ff7849" />
-        <MetricPill label="Kofeín" value="143mg" color="#ff7849" />
-        <MetricPill label="Work" value="3.5h" color="#c8ff00" />
-        <MetricPill label="Meditácia" value="✓" color="#2dd4bf" />
-        <MetricPill label="MRR" value="$1K" color="#c8ff00" />
-        <MetricPill label="Calls" value="3" color="#a78bfa" />
+        <MetricPill label="Spánok" value="Garmin" color="#6db6ff" />
+        <MetricPill label="Kofeín" value="0mg" color="#ff7849" />
+        <MetricPill label="Work" value="0h" color="#c8ff00" />
+        <MetricPill label="MRR" value="Stripe" color="#c8ff00" />
+        <MetricPill label="Pipeline" value="GHL" color="#a78bfa" />
       </div>
     </div>
   );

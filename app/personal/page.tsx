@@ -58,37 +58,14 @@ function Sleep() {
     <Card>
       <div className="flex justify-between items-start mb-5">
         <h3 className="text-lg font-bold tracking-[-0.02em]">Spánok</h3>
-        <span className="text-xs font-semibold px-2 py-1 rounded-md bg-accent/10 text-accent">Garmin live</span>
+        <span className="text-xs font-semibold px-2 py-1 rounded-md bg-bg-elev text-text-dim">Garmin · čoskoro</span>
       </div>
-      <div className="flex items-baseline gap-2 mb-4">
-        <span className="text-5xl font-bold text-cool tracking-[-0.03em]">6:42</span>
-        <span className="text-sm text-text-dim font-semibold">hod</span>
-        <span className="ml-auto text-2xl font-bold text-accent">78</span>
-        <span className="text-xs text-text-dim font-semibold">skóre</span>
-      </div>
-      <div className="flex h-2 rounded-full overflow-hidden mb-4 bg-bg-elev">
-        <div style={{ width: '22%', background: '#6db6ff' }} />
-        <div style={{ width: '48%', background: '#2dd4bf' }} />
-        <div style={{ width: '18%', background: '#c8ff00' }} />
-        <div style={{ width: '12%', background: '#ff7849' }} />
-      </div>
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { lbl: 'Light', val: '3h 02m', color: '#6db6ff' },
-          { lbl: 'Deep', val: '1h 28m', color: '#2dd4bf' },
-          { lbl: 'REM', val: '1h 12m', color: '#c8ff00' },
-          { lbl: 'Awake', val: '12m', color: '#ff7849' },
-        ].map(s => (
-          <div key={s.lbl} className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: s.color }}>{s.lbl}</span>
-            <span className="text-sm font-bold">{s.val}</span>
-          </div>
-        ))}
-      </div>
-      <div className="mt-4 pt-4 border-t border-border flex justify-between text-xs text-text-dim font-medium">
-        <span>Zaspal: 23:18</span>
-        <span>Zobúdil: 06:00</span>
-        <span>RHR: 52 bpm</span>
+      <div className="flex items-center justify-center py-8 text-center">
+        <div>
+          <div className="text-3xl mb-2 opacity-30">🌙</div>
+          <div className="text-sm text-text-dim font-medium">Garmin integrácia čoskoro</div>
+          <div className="text-xs text-text-subtle mt-1">Spánok, HRV, RHR — automaticky</div>
+        </div>
       </div>
     </Card>
   );
@@ -289,17 +266,7 @@ function WorkoutTracker() {
   const [selectedType, setSelectedType] = useState<typeof WORKOUT_TYPES[0] | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [customExercise, setCustomExercise] = useState('');
-  const [history, setHistory] = useState<WorkoutLog[]>([
-    {
-      type: 'Push',
-      date: 'Včera',
-      duration: 52,
-      exercises: [
-        { name: 'Bench Press', sets: [{ reps: 8, weight: 80 }, { reps: 7, weight: 80 }, { reps: 6, weight: 80 }] },
-        { name: 'Overhead Press', sets: [{ reps: 10, weight: 50 }, { reps: 8, weight: 50 }] },
-      ],
-    },
-  ]);
+  const [history, setHistory] = useState<WorkoutLog[]>([]);
   const [startTime] = useState(Date.now());
 
   const addExercise = (name: string) => {
@@ -737,11 +704,7 @@ function Meditation() {
 function WorkTime() {
   const [hours, setHours] = useState('');
   const [category, setCategory] = useState('Deep work');
-  const [log, setLog] = useState([
-    { category: 'Deep work', hours: '3.5', date: 'Dnes' },
-    { category: 'Calls', hours: '1.5', date: 'Dnes' },
-    { category: 'Deep work', hours: '4.0', date: 'Včera' },
-  ]);
+  const [log, setLog] = useState<{ category: string; hours: string; date: string }[]>([]);
 
   const add = () => {
     if (!hours) return;
@@ -830,32 +793,48 @@ function MiniTrackers() {
 
 // ─── TIMELINE ─────────────────────────────────────────────────────────────────
 function Timeline() {
-  const events = [
-    { time: '07:42', label: 'Wake up', color: '#6db6ff' },
-    { time: '08:00', label: 'Skincare rutina', color: '#a78bfa' },
-    { time: '08:15', label: 'Beh 5.2 km', color: '#ff7849' },
-    { time: '09:00', label: 'Espresso ☕', color: '#ff7849' },
-    { time: '09:30', label: 'Deep work · UGC scripty', color: '#c8ff00' },
-    { time: '11:00', label: 'Call · Texas Land Co', color: '#4ade80' },
-    { time: '12:30', label: 'Obed', color: '#ff5d7a' },
-    { time: '13:30', label: 'Work time · ads', color: '#c8ff00' },
-    { time: '15:00', label: 'Meditácia 20min', color: '#2dd4bf' },
-  ];
+  const [events, setEvents] = useState<{ time: string; label: string; color: string }[]>([]);
+  const [newTime, setNewTime] = useState(() => {
+    const n = new Date();
+    return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  });
+  const [newLabel, setNewLabel] = useState('');
+
+  const add = () => {
+    if (!newLabel.trim()) return;
+    setEvents(prev => [...prev, { time: newTime, label: newLabel.trim(), color: '#c8ff00' }]
+      .sort((a, b) => a.time.localeCompare(b.time)));
+    setNewLabel('');
+  };
+
   return (
     <Card>
       <div className="flex justify-between items-center mb-5">
         <h3 className="text-lg font-bold tracking-[-0.02em]">Timeline dňa</h3>
         <span className="text-xs text-text-dim font-medium">Hodinový log</span>
       </div>
+      {events.length === 0 && (
+        <div className="text-xs text-text-dim text-center py-4 mb-4">Žiadne záznamy — pridaj prvý</div>
+      )}
       {events.map((e, i) => (
-        <div key={i} className="grid grid-cols-[64px_1fr] gap-3 py-3 border-b border-white/[0.04] last:border-b-0 items-center">
+        <div key={i} className="grid grid-cols-[64px_1fr_auto] gap-3 py-3 border-b border-white/[0.04] last:border-b-0 items-center">
           <div className="text-xs text-text-dim font-semibold">{e.time}</div>
           <div className="flex items-center gap-2 text-sm font-medium">
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: e.color }}/>
             {e.label}
           </div>
+          <button onClick={() => setEvents(prev => prev.filter((_, j) => j !== i))}
+            className="text-text-dim hover:text-rose text-xs transition-colors">✕</button>
         </div>
       ))}
+      <div className="flex gap-2 mt-4">
+        <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)}
+          className="w-24 bg-bg-elev border border-border rounded-xl px-2 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
+        <input type="text" placeholder="Čo si robil..." value={newLabel} onChange={e => setNewLabel(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && add()}
+          className="flex-1 bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none focus:border-accent text-text placeholder:text-text-dim font-[inherit]"/>
+        <button onClick={add} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold">+</button>
+      </div>
     </Card>
   );
 }
