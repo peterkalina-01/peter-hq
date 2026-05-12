@@ -82,7 +82,7 @@ export default function FinancePage() {
     { name: 'Iné', pct: 4, color: '#2dd4bf' },
   ].map(e => ({ ...e, amount: Math.round((expO.val as number) * e.pct / 100) }));
 
-  const subs = [
+  const [subs, setSubs] = useState([
     { name: 'Claude Max', price: '$100', renews: '18. máj' },
     { name: 'GHL Pro', price: '$97', renews: '1. jún' },
     { name: 'Veo 3', price: '$30', renews: '14. máj' },
@@ -90,7 +90,10 @@ export default function FinancePage() {
     { name: 'ChatGPT Plus', price: '$20', renews: '12. máj' },
     { name: 'CapCut Pro', price: '$15', renews: '22. máj' },
     { name: 'SuperFaktúra', price: '€15', renews: '1. jún' },
-  ];
+  ]);
+  const [newSub, setNewSub] = useState({ name: '', price: '', renews: '' });
+  const [addingNew, setAddingNew] = useState(false);
+  const totalSubs = subs.reduce((sum, s) => sum + parseFloat(s.price.replace(/[^0-9.]/g, '')) || 0, 0);
 
   return (
     <>
@@ -198,16 +201,39 @@ export default function FinancePage() {
           <Card>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-bold">Predplatné</h3>
-              <span className="text-base font-bold text-accent">$284 / mes</span>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold text-accent">${totalSubs.toFixed(0)} / mes</span>
+                <button onClick={() => setAddingNew(true)} className="text-xs bg-accent text-bg px-2 py-1 rounded-lg font-bold">+ Pridať</button>
+              </div>
             </div>
+
+            {addingNew && (
+              <div className="flex gap-2 mb-3 p-3 bg-bg-elev rounded-xl border border-border">
+                <input placeholder="Názov" value={newSub.name} onChange={e => setNewSub(p => ({ ...p, name: e.target.value }))}
+                  className="flex-1 bg-bg-card border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-accent text-text font-[inherit]"/>
+                <input placeholder="$20" value={newSub.price} onChange={e => setNewSub(p => ({ ...p, price: e.target.value }))}
+                  className="w-16 bg-bg-card border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-accent text-text font-[inherit]"/>
+                <input placeholder="1. jún" value={newSub.renews} onChange={e => setNewSub(p => ({ ...p, renews: e.target.value }))}
+                  className="w-20 bg-bg-card border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-accent text-text font-[inherit]"/>
+                <button onClick={() => {
+                  if (newSub.name && newSub.price) { setSubs(p => [...p, newSub]); setNewSub({ name: '', price: '', renews: '' }); setAddingNew(false); }
+                }} className="bg-accent text-bg px-2 py-1.5 rounded-lg text-xs font-bold">✓</button>
+                <button onClick={() => setAddingNew(false)} className="text-text-dim px-2 py-1.5 rounded-lg text-xs">✕</button>
+              </div>
+            )}
+
             <div className="space-y-2">
-              {subs.map(s => (
-                <div key={s.name} className="flex justify-between items-center p-3 bg-bg-elev rounded-xl">
+              {subs.map((s, i) => (
+                <div key={i} className="flex justify-between items-center p-3 bg-bg-elev rounded-xl group">
                   <div>
                     <div className="text-sm font-semibold">{s.name}</div>
                     <div className="text-xs text-text-dim">{s.renews}</div>
                   </div>
-                  <div className="text-sm font-bold">{s.price}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-bold">{s.price}</div>
+                    <button onClick={() => setSubs(p => p.filter((_, j) => j !== i))}
+                      className="opacity-0 group-hover:opacity-100 text-text-dim hover:text-rose text-xs transition-all">✕</button>
+                  </div>
                 </div>
               ))}
             </div>
