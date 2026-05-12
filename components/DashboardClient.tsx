@@ -206,15 +206,35 @@ export default function DashboardClient() {
   const [pipeline, setPipeline] = useState<{ id: string; name: string; status: string; value: number; meta: string }[]>([]);
   const [datesMinutes, setDatesMinutes] = useState(0);
 
+  // Stripe data
+  const [stripeData, setStripeData] = useState<{
+    mrr: number;
+    revenue7d: number;
+    revenue30d: number;
+    activeCustomers: number;
+    transactions: { id: string; amount: number; currency: string; description: string; date: string }[];
+  } | null>(null);
+
+  // GHL data
+  const [ghlData, setGhlData] = useState<{
+    deals: { id: string; name: string; status: string; value: number }[];
+    totalPipelineValue: number;
+    totalContacts: number;
+    wonDeals: number;
+    activDeals: number;
+  } | null>(null);
+
   // Load data from Supabase
   const loadData = useCallback(async () => {
     setLoading(true);
     const date = new Date().toISOString().split('T')[0];
 
-    const [logData, cafData, pipeData] = await Promise.all([
+    const [logData, cafData, pipeData, stripeRes, ghlRes] = await Promise.all([
       getDailyLog(),
       supabase.from('caffeine_log').select('*').eq('date', date).order('time_logged'),
       supabase.from('pipeline').select('*').eq('active', true).order('created_at'),
+      fetch('/api/stripe').then(r => r.json()).catch(() => null),
+      fetch('/api/ghl').then(r => r.json()).catch(() => null),
     ]);
 
     if (logData) {
@@ -223,6 +243,8 @@ export default function DashboardClient() {
     }
     if (cafData.data) setCaffeineEntries(cafData.data);
     if (pipeData.data) setPipeline(pipeData.data);
+    if (stripeRes && !stripeRes.error) setStripeData(stripeRes);
+    if (ghlRes && !ghlRes.error) setGhlData(ghlRes);
     setLoading(false);
   }, []);
 
@@ -396,10 +418,14 @@ export default function DashboardClient() {
           </div>
 
           <div className="bg-bg-card border border-border rounded-2xl p-3 sm:p-4 flex items-center gap-3">
-            <Ring pct={3.3} color="#ff7849" size={60} stroke={5}><span className="text-[10px] font-bold text-accent">3.3%</span></Ring>
+            <Ring pct={stripeData ? Math.min((stripeData.mrr / 30000) * 100, 100) : 3.3} color="#ff7849" size={60} stroke={5}>
+              <span className="text-[10px] font-bold text-accent">
+                {stripeData ? `${Math.round((stripeData.mrr / 30000) * 100)}%` : '—'}
+              </span>
+            </Ring>
             <div className="min-w-0">
               <div className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-0.5">MRR</div>
-              <div className="text-sm font-bold">$1K</div>
+              <div className="text-sm font-bold">{stripeData ? `$${stripeData.mrr.toLocaleString()}` : '...'}</div>
               <div className="text-[10px] text-accent font-semibold">/ $30K</div>
             </div>
           </div>
@@ -440,10 +466,10 @@ export default function DashboardClient() {
           <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Biznis dnes</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { label: 'MRR', value: '$1,000', color: '#ff7849' },
-              { label: 'Tržby 7d', value: '$420', color: '#c8ff00' },
-              { label: 'Pipeline', value: `$${pipeline.reduce((s, p) => s + p.value, 0).toLocaleString()}`, color: '#6db6ff' },
-              { label: 'Ads ROAS', value: '—', color: '#888894' },
+              { label: 'MRR', value: stripeData ? `$${stripeData.mrr.toLocaleString()}` : '...', color: '#ff7849' },
+              { label: 'Tržby 7d', value: stripeData ? `$${stripeData.revenue7d.toLocaleString()}` : '...', color: '#c8ff00' },
+              { label: 'Klienti', value: stripeData ? `${stripeData.activeCustomers}` : '...', color: '#6db6ff' },
+              { label: 'Pipeline', value: `$${pipeline.reduce((s, p) => s + p.value, 0).toLocaleString()}`, color: '#a78bfa' },
             ].map(k => (
               <div key={k.label} className="bg-bg-card border border-border rounded-xl p-3">
                 <div className="text-[10px] text-text-dim font-semibold mb-1">{k.label}</div>
@@ -456,23 +482,24 @@ export default function DashboardClient() {
         {/* ── PIPELINE + ACTIVITIES ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
 
-          {/* Pipeline - live from Supabase */}
+          {/* Pipeline - live from GHL */}
           <div className="bg-bg-card border border-border rounded-2xl p-4">
             <div className="flex justify-between items-center mb-3">
               <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Pipeline</div>
-              <span className="text-sm font-bold text-accent">${pipeline.reduce((s, p) => s + p.value, 0).toLocaleString()}</span>
+              <span className="text-sm font-bold text-accent">
+                ${(ghlData?.totalPipelineValue || pipeline.reduce((s, p) => s + p.value, 0)).toLocaleString()}
+              </span>
             </div>
             <div className="space-y-2">
-              {pipeline.map((p) => (
-                <div key={p.id} className="flex justify-between items-center p-2.5 bg-bg-elev rounded-lg border-l-2"
-                  style={{ borderLeftColor: p.status === 'Hot' ? '#ff7849' : p.status === 'Warm' ? '#c8ff00' : '#6db6ff' }}>
+              {(ghlData?.deals?.filter(d => d.status !== 'lost' && d.status !== 'won').slice(0, 4) || pipeline).map((p, i) => (
+                <div key={p.id || i} className="flex justify-between items-center p-2.5 bg-bg-elev rounded-lg border-l-2"
+                  style={{ borderLeftColor: p.status === 'open' || p.status === 'Hot' ? '#ff7849' : p.status === 'Warm' ? '#c8ff00' : '#6db6ff' }}>
                   <div className="min-w-0 mr-2">
                     <div className="text-xs font-semibold truncate">{p.name}</div>
                     <div className="text-[10px] text-text-dim">{p.status}</div>
                   </div>
-                  <div className="text-sm font-bold flex-shrink-0"
-                    style={{ color: p.status === 'Hot' ? '#ff7849' : p.status === 'Warm' ? '#c8ff00' : '#6db6ff' }}>
-                    ${p.value.toLocaleString()}
+                  <div className="text-sm font-bold flex-shrink-0 text-accent">
+                    ${(p.value || 0).toLocaleString()}
                   </div>
                 </div>
               ))}

@@ -3,6 +3,7 @@
 import TopBar from '@/components/TopBar';
 import MobileNav from '@/components/MobileNav';
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 function SectionHeader({ title, meta }: { title: string; meta?: string }) {
   return (
@@ -94,203 +95,172 @@ function Sleep() {
 }
 
 // ─── CAFFEINE TRACKER ────────────────────────────────────────────────────────
-type CaffeineEntry = { drink: string; mg: number; time: string; timestamp: number };
-
 const DRINKS = [
-  { name: 'Espresso', mg: 63, emoji: '☕' },
-  { name: 'Cappuccino', mg: 80, emoji: '☕' },
-  { name: 'Latte', mg: 75, emoji: '🥛' },
-  { name: 'Doppio', mg: 126, emoji: '☕' },
+  { name: 'Espresso', mg: 63 },
+  { name: 'Cappuccino', mg: 80 },
+  { name: 'Latte', mg: 75 },
+  { name: 'Doppio', mg: 126 },
 ];
 
 function CaffeineTracker() {
-  const [entries, setEntries] = useState<CaffeineEntry[]>([]);
-  const [selectedDrink, setSelectedDrink] = useState(DRINKS[0]);
+  const [entries, setEntries] = useState<{ id: string; drink: string; mg: number; time_logged: string }[]>([]);
+  const [selectedDrink, setSelectedDrink] = useState(DRINKS[1]);
   const [customTime, setCustomTime] = useState(() => {
-    const now = new Date();
-    return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const n = new Date();
+    return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
   });
   const [sleepTime, setSleepTime] = useState('22:00');
-  const [now, setNow] = useState(Date.now());
+  const [nowTs, setNowTs] = useState(Date.now());
 
-  // Live clock for graph updates
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 60000);
+    const interval = setInterval(() => setNowTs(Date.now()), 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate current caffeine level using half-life model (5h = 300min)
-  const halfLifeMin = 300;
-  const getCaffeineAt = (timestamp: number, atTime: number) => {
-    const minutesPassed = (atTime - timestamp) / 60000;
-    if (minutesPassed < 0) return 0;
-    return Math.exp(-Math.log(2) / halfLifeMin * minutesPassed);
+  // Load from Supabase
+  useEffect(() => {
+    const date = new Date().toISOString().split('T')[0];
+    supabase.from('caffeine_log').select('*').eq('date', date).order('time_logged')
+      .then(({ data }) => { if (data) setEntries(data); });
+  }, []);
+
+  const halfLifeH = 5;
+  const getMgAt = (timeLogged: string, atMs: number) => {
+    const [hh, mm] = timeLogged.split(':').map(Number);
+    const entryMs = new Date().setHours(hh, mm, 0, 0);
+    const diffH = (atMs - entryMs) / 3600000;
+    if (diffH < 0) return 0;
+    return Math.pow(0.5, diffH / halfLifeH);
   };
 
-  const totalNow = entries.reduce((sum, e) => sum + e.mg * getCaffeineAt(e.timestamp, now), 0);
+  const nowH = new Date().getHours() + new Date().getMinutes() / 60;
+  const totalNow = entries.reduce((sum, e) => sum + e.mg * getMgAt(e.time_logged, nowTs), 0);
 
-  // Build decay graph — 24 points across today
-  const todayStart = new Date(); todayStart.setHours(6, 0, 0, 0);
-  const graphPoints = Array.from({ length: 97 }, (_, i) => {
-    const t = todayStart.getTime() + i * 15 * 60000; // every 15min
-    const mg = entries.reduce((sum, e) => sum + e.mg * getCaffeineAt(e.timestamp, t), 0);
-    return { t, mg };
+  // Graph
+  const W = 300; const H = 70;
+  const points = Array.from({ length: 73 }, (_, i) => {
+    const h = 5 + i * (17 / 72);
+    const atMs = new Date().setHours(Math.floor(h), Math.round((h % 1) * 60), 0, 0);
+    const mg = entries.reduce((sum, e) => sum + e.mg * getMgAt(e.time_logged, atMs), 0);
+    return { h, mg };
   });
-  const maxMg = Math.max(...graphPoints.map(p => p.mg), 200);
+  const maxMg = Math.max(...points.map(p => p.mg), 160);
+  const toX = (h: number) => ((h - 5) / 17) * W;
+  const toY = (mg: number) => H - (mg / maxMg) * H * 0.85 - 2;
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${toX(p.h).toFixed(1)},${toY(p.mg).toFixed(1)}`).join(' ');
+  const areaD = pathD + ` L${toX(22)},${H} L${toX(5)},${H} Z`;
+  const [cutoffH] = sleepTime.split(':').map(Number);
+  const cutoffDrinkH = cutoffH - 6;
+  const mgAtSleep = entries.reduce((sum, e) => {
+    const sleepMs = new Date().setHours(cutoffH, 0, 0, 0);
+    return sum + e.mg * getMgAt(e.time_logged, sleepMs);
+  }, 0);
 
-  // Cutoff time
-  const [cutoffH, cutoffM] = sleepTime.split(':').map(Number);
-  const sleepTs = new Date(); sleepTs.setHours(cutoffH - 6, cutoffM, 0, 0); // 6h before sleep
-  const sleepActual = new Date(); sleepActual.setHours(cutoffH, cutoffM, 0, 0);
-  const mgAtSleep = entries.reduce((sum, e) => sum + e.mg * getCaffeineAt(e.timestamp, sleepActual.getTime()), 0);
+  const addEntry = async () => {
+    const date = new Date().toISOString().split('T')[0];
+    const { data } = await supabase.from('caffeine_log')
+      .insert({ date, drink: selectedDrink.name, mg: selectedDrink.mg, time_logged: customTime })
+      .select().single();
+    if (data) setEntries(prev => [...prev, data].sort((a, b) => a.time_logged.localeCompare(b.time_logged)));
+  };
 
-  // SVG graph helpers
-  const W = 400; const H = 80;
-  const toX = (t: number) => ((t - todayStart.getTime()) / (16 * 3600000)) * W;
-  const toY = (mg: number) => H - (mg / maxMg) * H * 0.9;
-  const pathD = graphPoints.filter(p => p.mg > 0.5).map((p, i) => `${i === 0 ? 'M' : 'L'}${toX(p.t).toFixed(1)},${toY(p.mg).toFixed(1)}`).join(' ');
-  const areaD = pathD + ` L${toX(graphPoints[graphPoints.length-1].t)},${H} L${toX(graphPoints.find(p=>p.mg>0.5)?.t||todayStart.getTime())},${H} Z`;
-
-  const addEntry = () => {
-    const [h, m] = customTime.split(':').map(Number);
-    const ts = new Date(); ts.setHours(h, m, 0, 0);
-    setEntries(prev => [...prev, {
-      drink: selectedDrink.name,
-      mg: selectedDrink.mg,
-      time: customTime,
-      timestamp: ts.getTime(),
-    }].sort((a, b) => a.timestamp - b.timestamp));
+  const removeEntry = async (id: string) => {
+    await supabase.from('caffeine_log').delete().eq('id', id);
+    setEntries(prev => prev.filter(e => e.id !== id));
   };
 
   const statusColor = totalNow > 300 ? '#ff5d7a' : totalNow > 150 ? '#ff7849' : '#c8ff00';
-  const statusText = totalNow > 300 ? 'High — consider cutting' : totalNow > 150 ? 'Moderate' : totalNow < 20 ? 'Clear' : 'Good';
-
-  // Cutoff warning
-  const cutoffTs = new Date(); cutoffTs.setHours(cutoffH - 6, cutoffM, 0, 0);
-  const nowHour = new Date().getHours() + new Date().getMinutes() / 60;
-  const cutoffHour = cutoffH - 6;
-  const pastCutoff = nowHour > cutoffHour;
 
   return (
     <Card>
-      <div className="flex justify-between items-start mb-5">
+      <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-lg font-bold tracking-[-0.02em]">Kofeín</h3>
-          <div className="text-xs text-text-dim font-medium mt-0.5">Poločas rozpadu: 5 hodín</div>
+          <div className="text-xs text-text-dim mt-0.5">Sync s dashboardom · poločas 5h</div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold tracking-[-0.025em]" style={{ color: statusColor }}>{Math.round(totalNow)}<span className="text-sm font-semibold ml-1 text-text-dim">mg</span></div>
-          <div className="text-xs font-bold" style={{ color: statusColor }}>{statusText}</div>
+          <div className="text-2xl font-bold" style={{ color: statusColor }}>{Math.round(totalNow)}<span className="text-sm text-text-dim ml-1">mg</span></div>
+          {nowH > cutoffDrinkH && <div className="text-[10px] text-rose font-semibold">Po cutoff! ~{Math.round(mgAtSleep)}mg pri spánku</div>}
         </div>
       </div>
 
-      {/* Decay graph */}
-      {entries.length > 0 && (
-        <div className="mb-5 bg-bg-elev rounded-xl p-3 relative overflow-hidden">
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-16">
-            <defs>
-              <linearGradient id="caffGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ff7849" stopOpacity="0.4"/>
-                <stop offset="100%" stopColor="#ff7849" stopOpacity="0"/>
-              </linearGradient>
-            </defs>
-            {/* Cutoff line */}
-            {cutoffHour > 6 && cutoffHour < 22 && (
-              <line
-                x1={toX(cutoffTs.getTime())} y1="0"
-                x2={toX(cutoffTs.getTime())} y2={H}
-                stroke="#ff5d7a" strokeWidth="1.5" strokeDasharray="3,3"
-              />
-            )}
-            {/* Now line */}
-            <line
-              x1={toX(now)} y1="0"
-              x2={toX(now)} y2={H}
-              stroke="#c8ff00" strokeWidth="1" strokeDasharray="2,2" opacity="0.5"
-            />
-            {pathD && <>
-              <path d={areaD} fill="url(#caffGrad)"/>
-              <path d={pathD} fill="none" stroke="#ff7849" strokeWidth="2" strokeLinecap="round"/>
-            </>}
-          </svg>
-          <div className="flex justify-between text-[10px] text-text-dim font-medium mt-1">
-            <span>06:00</span>
-            <span className="text-rose text-[10px]">✕ cutoff {String(cutoffH-6).padStart(2,'0')}:{String(cutoffM).padStart(2,'0')}</span>
-            <span>22:00</span>
-          </div>
+      {/* Graph */}
+      <div className="bg-bg-elev rounded-xl p-3 mb-4">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 70 }}>
+          <defs>
+            <linearGradient id="cg2" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ff7849" stopOpacity="0.4"/>
+              <stop offset="100%" stopColor="#ff7849" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          {entries.length > 0 && <>
+            <path d={areaD} fill="url(#cg2)"/>
+            <path d={pathD} fill="none" stroke="#ff7849" strokeWidth="2" strokeLinecap="round"/>
+          </>}
+          <line x1={toX(cutoffDrinkH)} y1="0" x2={toX(cutoffDrinkH)} y2={H} stroke="#ff5d7a" strokeWidth="1.5" strokeDasharray="3,3" opacity="0.7"/>
+          {nowH >= 5 && nowH <= 22 && (
+            <>
+              <line x1={toX(nowH)} y1="0" x2={toX(nowH)} y2={H} stroke="#c8ff00" strokeWidth="1" strokeDasharray="2,2" opacity="0.5"/>
+              {entries.length > 0 && <circle cx={toX(nowH)} cy={toY(totalNow)} r="3.5" fill="#c8ff00"/>}
+            </>
+          )}
+        </svg>
+        <div className="flex justify-between text-[9px] text-text-dim mt-1">
+          <span>05:00</span>
+          <span style={{ color: '#ff5d7a' }}>cutoff {String(cutoffDrinkH).padStart(2,'0')}:00</span>
+          <span>22:00</span>
         </div>
-      )}
+      </div>
 
-      {/* Past cutoff warning */}
-      {pastCutoff && (
-        <div className="mb-4 px-4 py-3 bg-rose/10 border border-rose/20 rounded-xl text-xs font-semibold text-rose">
-          ⚠️ Past cutoff — ďalší kofeín ovplyvní spánok. Pri {sleepTime} budeš mať ~{Math.round(mgAtSleep)}mg v tele.
-        </div>
-      )}
-
-      {/* Log entries */}
+      {/* Entries */}
       {entries.length > 0 && (
         <div className="space-y-0 mb-4">
-          {[...entries].reverse().map((e, i) => (
-            <div key={i} className="flex justify-between items-center py-2.5 border-b border-white/[0.04] last:border-b-0 text-sm">
+          {[...entries].reverse().map((e) => (
+            <div key={e.id} className="flex justify-between items-center py-2 border-b border-white/[0.04] last:border-b-0 text-sm">
               <div className="flex items-center gap-2">
-                <span className="text-base">☕</span>
-                <div>
-                  <span className="font-semibold">{e.drink}</span>
-                  <span className="text-text-dim ml-2 text-xs">{e.time}</span>
-                </div>
+                <span>☕</span>
+                <span className="font-semibold">{e.drink}</span>
+                <span className="text-text-dim text-xs">{e.time_logged.slice(0,5)}</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <span className="text-xs text-text-dim">{e.mg}mg</span>
-                <button onClick={() => setEntries(prev => prev.filter((_, j) => j !== entries.length - 1 - i))}
-                  className="text-text-dim hover:text-rose text-xs transition-colors">✕</button>
+                <button onClick={() => removeEntry(e.id)} className="text-text-dim hover:text-rose transition-colors text-xs">✕</button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Add drink */}
+      {/* Add */}
       <div className="space-y-3">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {DRINKS.map(d => (
-            <button
-              key={d.name}
-              onClick={() => setSelectedDrink(d)}
-              className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all border ${selectedDrink.name === d.name ? 'bg-warm/10 border-warm text-warm' : 'bg-bg-elev border-border text-text-dim hover:border-border-strong hover:text-text'}`}
-            >
-              {d.name}<br/>
-              <span className="text-[10px] opacity-70">{d.mg}mg</span>
+            <button key={d.name} onClick={() => setSelectedDrink(d)}
+              className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all ${selectedDrink.name === d.name ? 'bg-warm/10 border-warm text-warm' : 'bg-bg-elev border-border text-text-dim hover:border-border-strong'}`}>
+              {d.name} <span className="opacity-60">{d.mg}mg</span>
             </button>
           ))}
         </div>
         <div className="flex gap-2">
           <div className="flex-1">
-            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1.5">Čas</div>
-            <input
-              type="time"
-              value={customTime}
-              onChange={e => setCustomTime(e.target.value)}
-              className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"
-            />
+            <div className="text-[10px] font-bold text-text-dim uppercase mb-1">Čas</div>
+            <input type="time" value={customTime} onChange={e => setCustomTime(e.target.value)}
+              className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
           </div>
           <div className="flex-1">
-            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1.5">Spánok o</div>
-            <input
-              type="time"
-              value={sleepTime}
-              onChange={e => setSleepTime(e.target.value)}
-              className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"
-            />
+            <div className="text-[10px] font-bold text-text-dim uppercase mb-1">Spánok o</div>
+            <input type="time" value={sleepTime} onChange={e => setSleepTime(e.target.value)}
+              className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
           </div>
           <div className="flex flex-col justify-end">
-            <button onClick={addEntry} className="bg-warm text-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-colors">+ Pridať</button>
+            <button onClick={addEntry} className="bg-warm text-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:opacity-90">+ Pridať</button>
           </div>
         </div>
       </div>
     </Card>
   );
 }
+
 
 // ─── WORKOUT TRACKER ─────────────────────────────────────────────────────────
 type Exercise = { name: string; sets: { reps: number; weight: number }[] };
@@ -573,74 +543,131 @@ function ExerciseLogger({ exercise, onAddSet, onRemoveSet }: {
 
 // ─── WEIGHT TRACKER ──────────────────────────────────────────────────────────
 function WeightTracker() {
-  const [entries, setEntries] = useState([
-    { date: '7. máj', weight: 74.2 },
-    { date: '8. máj', weight: 74.0 },
-    { date: '9. máj', weight: 73.8 },
-  ]);
+  const [entries, setEntries] = useState<{ id: string; date: string; weight_kg: number }[]>([]);
   const [input, setInput] = useState('');
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [loading, setLoading] = useState(true);
 
-  const addEntry = () => {
+  // Load from Supabase
+  useEffect(() => {
+    supabase.from('daily_logs')
+      .select('date, weight_kg')
+      .not('weight_kg', 'is', null)
+      .order('date', { ascending: true })
+      .then(({ data }) => {
+        if (data) {
+          setEntries(data.filter(d => d.weight_kg).map(d => ({
+            id: d.date,
+            date: d.date,
+            weight_kg: d.weight_kg,
+          })));
+        }
+        setLoading(false);
+      });
+  }, []);
+
+  const addEntry = async () => {
     if (!input || isNaN(parseFloat(input))) return;
-    const today = new Date().toLocaleDateString('sk-SK', { day: 'numeric', month: 'short' });
-    setEntries(prev => [...prev, { date: today, weight: parseFloat(input) }]);
+    const kg = parseFloat(input);
+    await supabase.from('daily_logs').upsert({ date: selectedDate, weight_kg: kg }, { onConflict: 'date' });
+    setEntries(prev => {
+      const filtered = prev.filter(e => e.date !== selectedDate);
+      return [...filtered, { id: selectedDate, date: selectedDate, weight_kg: kg }]
+        .sort((a, b) => a.date.localeCompare(b.date));
+    });
     setInput('');
   };
 
-  const weights = entries.map(e => e.weight);
-  const min = Math.min(...weights) - 0.5;
-  const max = Math.max(...weights) + 0.5;
-  const first = weights[0];
-  const last = weights[weights.length - 1];
-  const diff = (last - first).toFixed(1);
+  const removeEntry = async (date: string) => {
+    await supabase.from('daily_logs').upsert({ date, weight_kg: null }, { onConflict: 'date' });
+    setEntries(prev => prev.filter(e => e.date !== date));
+  };
+
+  const weights = entries.map(e => e.weight_kg);
+  const hasData = weights.length >= 2;
+  const min = hasData ? Math.min(...weights) - 0.5 : 70;
+  const max = hasData ? Math.max(...weights) + 0.5 : 80;
+  const diff = hasData ? (weights[weights.length - 1] - weights[0]).toFixed(1) : '0';
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('sk-SK', { day: 'numeric', month: 'short' });
+  };
 
   return (
     <Card>
       <div className="flex justify-between items-center mb-5">
         <h3 className="text-lg font-bold tracking-[-0.02em]">Váha</h3>
-        <span className={`text-xs font-bold px-2 py-1 rounded-md ${parseFloat(diff) <= 0 ? 'bg-accent/10 text-accent' : 'bg-rose/10 text-rose'}`}>
-          {parseFloat(diff) <= 0 ? '↓' : '↑'} {Math.abs(parseFloat(diff))} kg
-        </span>
+        {hasData && (
+          <span className={`text-xs font-bold px-2 py-1 rounded-md ${parseFloat(diff) <= 0 ? 'bg-accent/10 text-accent' : 'bg-rose/10 text-rose'}`}>
+            {parseFloat(diff) <= 0 ? '↓' : '↑'} {Math.abs(parseFloat(diff))} kg
+          </span>
+        )}
       </div>
-      <div className="relative h-20 mb-4 bg-bg-elev rounded-xl p-2">
-        <svg viewBox={`0 0 300 60`} className="w-full h-full" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#c8ff00" stopOpacity="0.3"/>
-              <stop offset="100%" stopColor="#c8ff00" stopOpacity="0"/>
-            </linearGradient>
-          </defs>
-          {entries.length > 1 && (() => {
-            const pts = entries.map((e, i) => ({
-              x: (i / (entries.length - 1)) * 280 + 10,
-              y: 50 - ((e.weight - min) / (max - min)) * 40,
-            }));
-            const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
-            const area = line + ` L${pts[pts.length-1].x},60 L${pts[0].x},60 Z`;
-            return (<>
-              <path d={area} fill="url(#wg)"/>
-              <path d={line} fill="none" stroke="#c8ff00" strokeWidth="2" strokeLinecap="round"/>
-              {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="#c8ff00"/>)}
-            </>);
-          })()}
-        </svg>
-      </div>
-      <div className="space-y-0 mb-4 max-h-28 overflow-y-auto">
-        {[...entries].reverse().map((e, i) => (
-          <div key={i} className="flex justify-between text-sm py-2 border-b border-white/[0.04] last:border-b-0">
-            <span className="text-text-dim font-medium">{e.date}</span>
-            <span className="font-bold">{e.weight} kg</span>
-          </div>
-        ))}
-      </div>
+
+      {/* Graph */}
+      {hasData && (
+        <div className="relative h-20 mb-4 bg-bg-elev rounded-xl p-2">
+          <svg viewBox="0 0 300 60" className="w-full h-full" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="wg2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#c8ff00" stopOpacity="0.3"/>
+                <stop offset="100%" stopColor="#c8ff00" stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+            {(() => {
+              const pts = entries.map((e, i) => ({
+                x: (i / (entries.length - 1)) * 280 + 10,
+                y: 50 - ((e.weight_kg - min) / (max - min)) * 40,
+              }));
+              const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+              const area = line + ` L${pts[pts.length-1].x},60 L${pts[0].x},60 Z`;
+              return (<>
+                <path d={area} fill="url(#wg2)"/>
+                <path d={line} fill="none" stroke="#c8ff00" strokeWidth="2" strokeLinecap="round"/>
+                {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="#c8ff00"/>)}
+              </>);
+            })()}
+          </svg>
+        </div>
+      )}
+
+      {/* Entries */}
+      {loading ? (
+        <div className="text-xs text-text-dim text-center py-4">Načítavam...</div>
+      ) : entries.length === 0 ? (
+        <div className="text-xs text-text-dim text-center py-4 mb-4">Zatiaľ žiadne záznamy — pridaj prvý</div>
+      ) : (
+        <div className="space-y-0 mb-4 max-h-36 overflow-y-auto">
+          {[...entries].reverse().map((e) => (
+            <div key={e.id} className="flex justify-between items-center text-sm py-2 border-b border-white/[0.04] last:border-b-0">
+              <span className="text-text-dim font-medium">{formatDate(e.date)}</span>
+              <div className="flex items-center gap-3">
+                <span className="font-bold">{e.weight_kg} kg</span>
+                <button onClick={() => removeEntry(e.date)} className="text-text-dim hover:text-rose text-xs transition-colors">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add */}
       <div className="flex gap-2">
-        <input
-          type="number" step="0.1" placeholder="74.5"
-          value={input} onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && addEntry()}
-          className="flex-1 bg-bg-elev border border-border rounded-xl px-4 py-3 text-sm font-semibold outline-none focus:border-accent text-text placeholder:text-text-dim font-[inherit]"
-        />
-        <button onClick={addEntry} className="bg-accent text-bg px-5 py-3 rounded-xl text-sm font-bold hover:bg-accent-dim">+ Pridať</button>
+        <div className="flex-1">
+          <div className="text-[10px] font-bold text-text-dim uppercase mb-1">Dátum</div>
+          <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+            className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
+        </div>
+        <div className="flex-1">
+          <div className="text-[10px] font-bold text-text-dim uppercase mb-1">Váha (kg)</div>
+          <input type="number" step="0.1" placeholder="74.5" value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addEntry()}
+            className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
+        </div>
+        <div className="flex flex-col justify-end">
+          <button onClick={addEntry} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-accent-dim">+ Pridať</button>
+        </div>
       </div>
     </Card>
   );
