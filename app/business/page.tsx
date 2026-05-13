@@ -87,6 +87,21 @@ function useOv(key: string, real: number) {
 }
 
 // ─── PIPELINE WITH STAGES ────────────────────────────────────────────────────
+function DealRow({ deal, color }: { deal: GhlDeal; color: string }) {
+  const dealOv = useOv(`deal_${deal.id}`, deal.value);
+  return (
+    <div className="flex justify-between items-center p-2.5 bg-bg-elev rounded-lg">
+      <div className="min-w-0 mr-3">
+        <div className="text-xs font-semibold truncate">{deal.name}</div>
+        {deal.contact && <div className="text-[10px] text-text-dim truncate">{deal.contact}</div>}
+      </div>
+      <span style={{ color }} className="text-sm font-bold flex-shrink-0">
+        <Editable value={`$${Number(dealOv.v).toLocaleString()}`} onSave={dealOv.save} overridden={dealOv.ov}/>
+      </span>
+    </div>
+  );
+}
+
 function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean }) {
   const stageColors = ['#ff7849', '#c8ff00', '#6db6ff', '#a78bfa', '#2dd4bf', '#ff5d7a', '#4ade80'];
   const totalOv = useOv('pipeline_total', ghl?.totalPipelineValue || 0);
@@ -107,18 +122,11 @@ function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boole
 
   return (
     <div className="space-y-3">
-      {/* Total */}
       <div className="flex justify-between items-center px-1">
         <span className="text-xs font-bold text-text-dim uppercase tracking-wider">Pipeline celkom</span>
-        <Editable
-          value={`$${Number(totalOv.v).toLocaleString()}`}
-          onSave={totalOv.save}
-          overridden={totalOv.ov}
-          className="text-base font-bold text-accent"
-        />
+        <Editable value={`$${Number(totalOv.v).toLocaleString()}`} onSave={totalOv.save} overridden={totalOv.ov} className="text-base font-bold text-accent"/>
       </div>
 
-      {/* By stage */}
       {stages.map(([stageId, stage], idx) => (
         <Card key={stageId} className="p-4">
           <div className="flex justify-between items-center mb-3">
@@ -132,23 +140,9 @@ function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boole
             </span>
           </div>
           <div className="space-y-2">
-            {stage.deals.map(deal => {
-              const dealOv = useOv(`deal_${deal.id}`, deal.value); // eslint-disable-line
-              return (
-                <div key={deal.id} className="flex justify-between items-center p-2.5 bg-bg-elev rounded-lg">
-                  <div className="min-w-0 mr-3">
-                    <div className="text-xs font-semibold truncate">{deal.name}</div>
-                    {deal.contact && <div className="text-[10px] text-text-dim truncate">{deal.contact}</div>}
-                  </div>
-                  <Editable
-                    value={`$${Number(dealOv.v).toLocaleString()}`}
-                    onSave={dealOv.save}
-                    overridden={dealOv.ov}
-                    className="text-sm font-bold flex-shrink-0"
-                  />
-                </div>
-              );
-            })}
+            {stage.deals.map(deal => (
+              <DealRow key={deal.id} deal={deal} color={stageColors[idx % stageColors.length]} />
+            ))}
           </div>
         </Card>
       ))}

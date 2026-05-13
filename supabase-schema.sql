@@ -22,6 +22,7 @@ create table if not exists daily_logs (
   -- Activities
   workout_done boolean default false,
   workout_type text default '',
+  workout_duration integer default 0,
   run_done boolean default false,
   -- Trackers
   screen_pc_hours numeric default 0,

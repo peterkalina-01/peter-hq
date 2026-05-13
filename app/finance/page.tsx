@@ -82,7 +82,7 @@ export default function FinancePage() {
     { name: 'Iné', pct: 4, color: '#2dd4bf' },
   ].map(e => ({ ...e, amount: Math.round((expO.val as number) * e.pct / 100) }));
 
-  const [subs, setSubs] = useState([
+  const DEFAULT_SUBS = [
     { name: 'Claude Max', price: '$100', renews: '18. máj' },
     { name: 'GHL Pro', price: '$97', renews: '1. jún' },
     { name: 'Veo 3', price: '$30', renews: '14. máj' },
@@ -90,10 +90,26 @@ export default function FinancePage() {
     { name: 'ChatGPT Plus', price: '$20', renews: '12. máj' },
     { name: 'CapCut Pro', price: '$15', renews: '22. máj' },
     { name: 'SuperFaktúra', price: '€15', renews: '1. jún' },
-  ]);
+  ];
+
+  const [subs, setSubs] = useState(DEFAULT_SUBS);
   const [newSub, setNewSub] = useState({ name: '', price: '', renews: '' });
   const [addingNew, setAddingNew] = useState(false);
-  const totalSubs = subs.reduce((sum, s) => sum + parseFloat(s.price.replace(/[^0-9.]/g, '')) || 0, 0);
+
+  // Load subs from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('peter_subs');
+      if (saved) setSubs(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const saveSubs = (newSubs: typeof DEFAULT_SUBS) => {
+    setSubs(newSubs);
+    try { localStorage.setItem('peter_subs', JSON.stringify(newSubs)); } catch {}
+  };
+
+  const totalSubs = subs.reduce((sum, s) => sum + (parseFloat(s.price.replace(/[^0-9.]/g, '')) || 0), 0);
 
   return (
     <>
@@ -216,7 +232,11 @@ export default function FinancePage() {
                 <input placeholder="1. jún" value={newSub.renews} onChange={e => setNewSub(p => ({ ...p, renews: e.target.value }))}
                   className="w-20 bg-bg-card border border-border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-accent text-text font-[inherit]"/>
                 <button onClick={() => {
-                  if (newSub.name && newSub.price) { setSubs(p => [...p, newSub]); setNewSub({ name: '', price: '', renews: '' }); setAddingNew(false); }
+                  if (newSub.name && newSub.price) {
+                    saveSubs([...subs, newSub]);
+                    setNewSub({ name: '', price: '', renews: '' });
+                    setAddingNew(false);
+                  }
                 }} className="bg-accent text-bg px-2 py-1.5 rounded-lg text-xs font-bold">✓</button>
                 <button onClick={() => setAddingNew(false)} className="text-text-dim px-2 py-1.5 rounded-lg text-xs">✕</button>
               </div>
@@ -231,7 +251,7 @@ export default function FinancePage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-sm font-bold">{s.price}</div>
-                    <button onClick={() => setSubs(p => p.filter((_, j) => j !== i))}
+                    <button onClick={() => saveSubs(subs.filter((_, j) => j !== i))}
                       className="opacity-0 group-hover:opacity-100 text-text-dim hover:text-rose text-xs transition-all">✕</button>
                   </div>
                 </div>

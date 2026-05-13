@@ -138,182 +138,139 @@ function Sleep() {
 }
 
 // ─── WORKOUT TRACKER ─────────────────────────────────────────────────────────
-type ExerciseSet = { reps: number; weight: number };
-type Exercise = { name: string; sets: ExerciseSet[] };
-type WorkoutLog = { type: string; exercises: Exercise[]; date: string; duration: number };
-
-const WORKOUT_TYPES = [
-  { id: 'push', label: 'Push', color: '#ff7849', desc: 'Chest · Shoulders · Triceps' },
-  { id: 'pull', label: 'Pull', color: '#6db6ff', desc: 'Back · Biceps · Rear delts' },
-  { id: 'legs', label: 'Legs', color: '#c8ff00', desc: 'Quads · Hamstrings · Calves' },
-  { id: 'upper', label: 'Upper', color: '#a78bfa', desc: 'Full upper body' },
-  { id: 'full', label: 'Full Body', color: '#2dd4bf', desc: 'Compound movements' },
-  { id: 'playground', label: 'Playground', color: '#ff5d7a', desc: 'Calisthenics · Outdoor' },
-];
-
-const PRESET_EXERCISES: Record<string, string[]> = {
-  push: ['Bench Press', 'Incline Dumbbell Press', 'Overhead Press', 'Lateral Raises', 'Tricep Pushdown', 'Chest Dips'],
-  pull: ['Pull-ups', 'Barbell Row', 'Cable Row', 'Lat Pulldown', 'Face Pulls', 'Bicep Curls', 'Hammer Curls'],
-  legs: ['Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl', 'Leg Extension', 'Calf Raises'],
-  upper: ['Bench Press', 'Pull-ups', 'Overhead Press', 'Cable Row', 'Lateral Raises', 'Bicep Curls'],
-  full: ['Deadlift', 'Squat', 'Bench Press', 'Pull-ups', 'Overhead Press'],
-  playground: ['Pull-ups', 'Dips', 'Muscle-ups', 'L-sit', 'Pike Push-ups', 'Box Jumps'],
+const PRESET_WORKOUTS = {
+  push: {
+    label: 'Push', color: '#ff7849', desc: 'Chest · Shoulders · Triceps',
+    exercises: ['Bench Press', 'Incline Dumbbell Press', 'Overhead Press', 'Lateral Raises', 'Tricep Pushdown', 'Chest Dips'],
+  },
+  pull: {
+    label: 'Pull', color: '#6db6ff', desc: 'Back · Biceps · Rear delts',
+    exercises: ['Pull-ups', 'Barbell Row', 'Cable Row', 'Lat Pulldown', 'Face Pulls', 'Bicep Curls', 'Hammer Curls'],
+  },
+  legs: {
+    label: 'Legs', color: '#c8ff00', desc: 'Quads · Hamstrings · Calves',
+    exercises: ['Squat', 'Romanian Deadlift', 'Leg Press', 'Leg Curl', 'Leg Extension', 'Calf Raises'],
+  },
+  other: {
+    label: 'Iný', color: '#a78bfa', desc: 'Upper / Full body / Playground',
+    exercises: [],
+  },
 };
 
 function WorkoutTracker({ log, update }: { log: Record<string, unknown>; update: (u: Record<string, unknown>) => void }) {
-  const [phase, setPhase] = useState<'select' | 'log' | 'history'>('select');
-  const [selectedType, setSelectedType] = useState<typeof WORKOUT_TYPES[0] | null>(null);
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [customExercise, setCustomExercise] = useState('');
-  const [history, setHistory] = useState<WorkoutLog[]>([]);
-  const [startTime] = useState(Date.now());
+  const [logging, setLogging] = useState(false);
+  const [selectedType, setSelectedType] = useState<keyof typeof PRESET_WORKOUTS>('push');
+  const [duration, setDuration] = useState('60');
+  const [startTime] = useState<number>(Date.now());
 
-  const addExercise = (name: string) => {
-    if (exercises.find(e => e.name === name)) return;
-    setExercises(prev => [...prev, { name, sets: [] }]);
+  const workoutDone = !!log.workout_done;
+  const workoutType = String(log.workout_type || '');
+  const workoutDuration = (log.workout_duration as number) || 0;
+
+  const finish = async () => {
+    const mins = parseInt(duration) || Math.round((Date.now() - startTime) / 60000);
+    await update({
+      workout_done: true,
+      workout_type: PRESET_WORKOUTS[selectedType].label,
+      workout_duration: mins,
+    });
+    setLogging(false);
   };
 
-  const addSet = (i: number, reps: number, weight: number) => {
-    setExercises(prev => { const c = [...prev]; c[i] = { ...c[i], sets: [...c[i].sets, { reps, weight }] }; return c; });
+  const reset = async () => {
+    await update({ workout_done: false, workout_type: '', workout_duration: 0 });
   };
 
-  const removeLastSet = (i: number) => {
-    setExercises(prev => { const c = [...prev]; c[i] = { ...c[i], sets: c[i].sets.slice(0, -1) }; return c; });
-  };
-
-  const finishWorkout = async () => {
-    if (!selectedType || exercises.length === 0) return;
-    const entry: WorkoutLog = { type: selectedType.label, exercises, date: 'Dnes', duration: Math.round((Date.now() - startTime) / 60000) };
-    setHistory(prev => [entry, ...prev]);
-    await update({ workout_done: true, workout_type: selectedType.label });
-    setPhase('select'); setExercises([]); setSelectedType(null);
-  };
-
-  if (phase === 'history') return (
+  if (logging) return (
     <Card>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Workout história</h3>
-        <button onClick={() => setPhase('select')} className="text-xs font-bold text-accent">← Späť</button>
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="text-lg font-bold">Zaznamenať workout</h3>
+        <button onClick={() => setLogging(false)} className="text-xs text-text-dim hover:text-text">✕ Zrušiť</button>
       </div>
-      {history.length === 0 ? (
-        <div className="text-xs text-text-dim text-center py-6">Žiadna história — dokonči prvý workout</div>
-      ) : history.map((h, i) => (
-        <div key={i} className="p-3 bg-bg-elev rounded-xl mb-2 border border-border">
-          <div className="flex justify-between mb-1">
-            <span className="text-sm font-bold">{h.type}</span>
-            <span className="text-xs text-text-dim">{h.date} · {h.duration}min</span>
-          </div>
-          {h.exercises.map((ex, j) => (
-            <div key={j} className="text-xs text-text-dim">
-              <span className="text-text font-medium">{ex.name}</span>
-              {' · '}{ex.sets.map((s, k) => <span key={k}>{k > 0 ? ' · ' : ''}{s.reps}×{s.weight}kg</span>)}
-            </div>
-          ))}
-        </div>
-      ))}
-    </Card>
-  );
 
-  if (phase === 'select') return (
-    <Card>
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h3 className="text-lg font-bold">Workout</h3>
-          {!!log.workout_done && <div className="text-xs text-accent font-semibold mt-0.5">✓ Hotovo dnes · {String(log.workout_type || '')}</div>}
-        </div>
-        <button onClick={() => setPhase('history')} className="text-xs font-bold text-text-dim">História ({history.length}) →</button>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-        {WORKOUT_TYPES.map(t => (
-          <button key={t.id} onClick={() => { setSelectedType(t); setPhase('log'); }}
-            className="p-4 bg-bg-elev border border-border rounded-xl hover:border-border-strong text-left transition-all">
-            <div className="text-sm font-bold mb-0.5" style={{ color: t.color }}>{t.label}</div>
+      {/* Type selection */}
+      <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Typ tréningu</div>
+      <div className="grid grid-cols-2 gap-2 mb-5">
+        {(Object.entries(PRESET_WORKOUTS) as [keyof typeof PRESET_WORKOUTS, typeof PRESET_WORKOUTS[keyof typeof PRESET_WORKOUTS]][]).map(([key, t]) => (
+          <button key={key} onClick={() => setSelectedType(key)}
+            className={`p-4 rounded-xl border text-left transition-all ${selectedType === key ? 'border-accent bg-accent/[0.06]' : 'bg-bg-elev border-border hover:border-border-strong'}`}>
+            <div className="text-sm font-bold mb-0.5" style={{ color: selectedType === key ? '#ff7849' : t.color }}>{t.label}</div>
             <div className="text-[10px] text-text-dim">{t.desc}</div>
           </button>
         ))}
       </div>
+
+      {/* Preset exercises info */}
+      {PRESET_WORKOUTS[selectedType].exercises.length > 0 && (
+        <div className="bg-bg-elev rounded-xl p-4 mb-5">
+          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Typické cviky · {PRESET_WORKOUTS[selectedType].label}</div>
+          <div className="flex flex-wrap gap-1.5">
+            {PRESET_WORKOUTS[selectedType].exercises.map(ex => (
+              <span key={ex} className="text-[11px] px-2 py-1 bg-bg-card border border-border rounded-lg text-text-dim font-medium">{ex}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Duration */}
+      <div className="mb-5">
+        <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Trvanie (minúty)</div>
+        <div className="flex gap-2">
+          {['30', '45', '60', '75', '90'].map(m => (
+            <button key={m} onClick={() => setDuration(m)}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${duration === m ? 'bg-accent text-bg border-accent' : 'bg-bg-elev border-border text-text-dim hover:border-border-strong'}`}>
+              {m}m
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button onClick={finish} className="w-full bg-accent text-bg py-3.5 rounded-xl text-sm font-bold hover:bg-accent-dim transition-colors">
+        ✓ Uložiť workout · {PRESET_WORKOUTS[selectedType].label} · {duration}min
+      </button>
     </Card>
   );
 
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <div>
-          <h3 className="text-lg font-bold" style={{ color: selectedType?.color }}>{selectedType?.label}</h3>
-          <div className="text-xs text-text-dim">{selectedType?.desc}</div>
+        <h3 className="text-lg font-bold">Workout</h3>
+        {workoutDone && (
+          <button onClick={reset} className="text-[10px] text-text-dim hover:text-rose transition-colors">Resetovať</button>
+        )}
+      </div>
+
+      {workoutDone ? (
+        // Done state
+        <div className="flex items-center gap-4 p-4 bg-accent/[0.04] border border-accent/20 rounded-xl mb-4">
+          <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center text-bg text-xl font-bold flex-shrink-0">✓</div>
+          <div>
+            <div className="text-base font-bold">{workoutType}</div>
+            <div className="text-sm text-text-dim">
+              {workoutDuration > 0 ? `${workoutDuration} min aktívne` : 'Hotovo dnes'}
+            </div>
+          </div>
+          <div className="ml-auto text-right">
+            <div className="text-xs text-text-dim">Garmin</div>
+            <div className="text-xs text-text-subtle">sync čoskoro</div>
+          </div>
         </div>
-        <button onClick={() => { setPhase('select'); setExercises([]); }} className="text-xs text-text-dim">✕ Zrušiť</button>
-      </div>
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {(PRESET_EXERCISES[selectedType?.id || 'push'] || []).map(ex => (
-          <button key={ex} onClick={() => addExercise(ex)} disabled={!!exercises.find(e => e.name === ex)}
-            className={`text-xs px-2.5 py-1.5 rounded-lg font-semibold border transition-all ${exercises.find(e => e.name === ex) ? 'bg-accent/10 text-accent border-accent/20' : 'bg-bg-elev border-border text-text-dim hover:border-border-strong'}`}>
-            {ex}
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-2 mb-4">
-        <input type="text" placeholder="Vlastný cvik..." value={customExercise}
-          onChange={e => setCustomExercise(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && customExercise.trim()) { addExercise(customExercise.trim()); setCustomExercise(''); } }}
-          className="flex-1 bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none focus:border-accent text-text placeholder:text-text-dim font-[inherit]"/>
-        <button onClick={() => { if (customExercise.trim()) { addExercise(customExercise.trim()); setCustomExercise(''); } }}
-          className="bg-bg-elev border border-border px-4 py-2.5 rounded-xl text-sm font-bold hover:border-accent">+</button>
-      </div>
-      <div className="space-y-3 mb-4">
-        {exercises.map((ex, i) => <ExerciseLogger key={i} exercise={ex} onAddSet={(r, w) => addSet(i, r, w)} onRemoveSet={() => removeLastSet(i)} />)}
-      </div>
-      {exercises.length > 0 ? (
-        <button onClick={finishWorkout} className="w-full bg-accent text-bg py-3.5 rounded-xl text-sm font-bold hover:bg-accent-dim">
-          ✓ Dokončiť · {exercises.reduce((s, e) => s + e.sets.length, 0)} setov
-        </button>
       ) : (
-        <div className="text-center py-4 text-text-dim text-sm">Pridaj cviky →</div>
+        // Empty state
+        <div className="flex items-center gap-4 p-4 bg-bg-elev border border-border rounded-xl mb-4">
+          <div className="w-12 h-12 bg-bg-card border border-border rounded-xl flex items-center justify-center text-text-dim text-xl flex-shrink-0">○</div>
+          <div>
+            <div className="text-sm font-semibold text-text-dim">Dnes ešte nič</div>
+            <div className="text-xs text-text-subtle">Garmin sync čoskoro</div>
+          </div>
+        </div>
       )}
+
+      <button onClick={() => setLogging(true)}
+        className={`w-full py-3 rounded-xl text-sm font-bold border transition-all ${workoutDone ? 'bg-bg-elev border-border text-text-dim hover:border-border-strong' : 'bg-accent text-bg border-accent hover:bg-accent-dim'}`}>
+        {workoutDone ? '+ Zaznamenať ďalší' : '+ Zaznamenať workout'}
+      </button>
     </Card>
-  );
-}
-
-function ExerciseLogger({ exercise, onAddSet, onRemoveSet }: { exercise: Exercise; onAddSet: (r: number, w: number) => void; onRemoveSet: () => void }) {
-  const [reps, setReps] = useState(8);
-  const [weight, setWeight] = useState(0);
-  const last = exercise.sets[exercise.sets.length - 1];
-
-  return (
-    <div className="bg-bg-elev rounded-xl p-4 border border-border">
-      <div className="flex justify-between items-center mb-3">
-        <span className="text-sm font-bold">{exercise.name}</span>
-        <span className="text-xs text-text-dim">{exercise.sets.length} setov</span>
-      </div>
-      {exercise.sets.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {exercise.sets.map((s, i) => <span key={i} className="text-xs bg-bg-card border border-border px-2 py-1 rounded-lg font-semibold">{s.reps}×{s.weight}kg</span>)}
-        </div>
-      )}
-      <div className="flex gap-2 items-center">
-        <div className="flex flex-col items-center">
-          <span className="text-[9px] text-text-dim font-bold uppercase mb-1">Reps</span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setReps(r => Math.max(1, r - 1))} className="w-7 h-7 bg-bg-card rounded-lg text-sm font-bold">−</button>
-            <span className="w-8 text-center text-sm font-bold">{reps}</span>
-            <button onClick={() => setReps(r => r + 1)} className="w-7 h-7 bg-bg-card rounded-lg text-sm font-bold">+</button>
-          </div>
-        </div>
-        <div className="flex flex-col items-center">
-          <span className="text-[9px] text-text-dim font-bold uppercase mb-1">Váha (kg)</span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setWeight(w => Math.max(0, +(w - 2.5).toFixed(1)))} className="w-7 h-7 bg-bg-card rounded-lg text-sm font-bold">−</button>
-            <span className="w-12 text-center text-sm font-bold">{weight}</span>
-            <button onClick={() => setWeight(w => +(w + 2.5).toFixed(1))} className="w-7 h-7 bg-bg-card rounded-lg text-sm font-bold">+</button>
-          </div>
-        </div>
-        <div className="flex gap-1 ml-auto">
-          <button onClick={() => onAddSet(reps, weight)} className="bg-accent text-bg px-3 py-2 rounded-lg text-xs font-bold">+ Set</button>
-          {exercise.sets.length > 0 && <button onClick={onRemoveSet} className="bg-bg-card border border-border px-2 py-2 rounded-lg text-xs text-text-dim hover:text-rose">✕</button>}
-        </div>
-      </div>
-      {last && <div className="text-[10px] text-text-dim mt-2">Posledný: {last.reps}×{last.weight}kg</div>}
-    </div>
   );
 }
 
