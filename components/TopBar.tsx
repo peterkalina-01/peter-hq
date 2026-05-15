@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const navItems = [
+  { href: '/today', label: 'Dnes' },
   { href: '/', label: 'Dashboard' },
   { href: '/personal', label: 'Osobné' },
   { href: '/business', label: 'Biznis' },

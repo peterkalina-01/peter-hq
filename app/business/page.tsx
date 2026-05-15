@@ -8,15 +8,23 @@ import { supabase } from '@/lib/supabase';
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 type GhlDeal = {
   id: string; name: string; status: string; value: number;
-  stageId: string; stageName: string; contact: string;
+  stageId: string; stageName: string; stagePosition: number;
+  contact: string; phone?: string; updatedAt: string;
 };
 type GhlData = {
+  pipelineName: string;
+  pipelineId: string;
+  stages: { id: string; name: string }[];
+  deals: GhlDeal[];
   activeDeals: GhlDeal[];
+  byStage: Record<string, { stageName: string; stagePosition: number; deals: GhlDeal[]; total: number; isTerminal: boolean }>;
   totalPipelineValue: number;
-  byStage: Record<string, { stageName: string; deals: GhlDeal[]; total: number }>;
+  totalAllValue: number;
   totalContacts: number;
   appointments: { id: string; title: string; status: string; startTime: string; contact: string }[];
   wonDeals: number;
+  lostDeals: number;
+  openDeals: number;
 };
 type StripeData = { mrr: number; revenue7d: number; activeCustomers: number };
 
@@ -103,49 +111,91 @@ function DealRow({ deal, color }: { deal: GhlDeal; color: string }) {
 }
 
 function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean }) {
-  const stageColors = ['#ff7849', '#c8ff00', '#6db6ff', '#a78bfa', '#2dd4bf', '#ff5d7a', '#4ade80'];
   const totalOv = useOv('pipeline_total', ghl?.totalPipelineValue || 0);
 
-  if (loading) return <Card><div className="text-xs text-text-dim animate-pulse py-4 text-center">Načítavam pipeline z GHL...</div></Card>;
+  if (loading) return (
+    <Card><div className="text-xs text-text-dim animate-pulse py-6 text-center">Načítavam pipeline z GHL...</div></Card>
+  );
 
-  if (!ghl || !ghl.activeDeals?.length) return (
+  if (!ghl || !ghl.stages?.length) return (
     <Card>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-3">
         <h3 className="text-lg font-bold">Pipeline</h3>
         <span className="text-xs text-text-dim">GHL nedostupný</span>
       </div>
-      <div className="text-xs text-text-dim text-center py-4">Žiadne aktívne deals · skontroluj GHL key</div>
+      <div className="text-xs text-text-dim text-center py-6">Skontroluj GHL API key a Location ID</div>
     </Card>
   );
 
-  const stages = Object.entries(ghl.byStage);
+  const stageColors: Record<string, string> = {
+    active: '#ff7849',
+    mid: '#c8ff00',
+    late: '#6db6ff',
+    terminal: '#888894',
+  };
+
+  const totalStages = ghl.stages.length;
 
   return (
     <div className="space-y-3">
+      {/* Pipeline header */}
       <div className="flex justify-between items-center px-1">
-        <span className="text-xs font-bold text-text-dim uppercase tracking-wider">Pipeline celkom</span>
-        <Editable value={`$${Number(totalOv.v).toLocaleString()}`} onSave={totalOv.save} overridden={totalOv.ov} className="text-base font-bold text-accent"/>
+        <div>
+          <div className="text-xs font-bold text-text-dim uppercase tracking-wider">{ghl.pipelineName}</div>
+          <div className="text-[10px] text-text-subtle mt-0.5">
+            {ghl.openDeals} open · {ghl.wonDeals} won · {ghl.lostDeals} lost
+          </div>
+        </div>
+        <div className="text-right">
+          <Editable value={`$${Number(totalOv.v).toLocaleString()}`} onSave={totalOv.save} overridden={totalOv.ov}
+            className="text-base font-bold text-accent"/>
+          <div className="text-[10px] text-text-dim">aktívna hodnota</div>
+        </div>
       </div>
 
-      {stages.map(([stageId, stage], idx) => (
-        <Card key={stageId} className="p-4">
-          <div className="flex justify-between items-center mb-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: stageColors[idx % stageColors.length] }}/>
-              <span className="text-sm font-bold">{stage.stageName}</span>
-              <span className="text-xs text-text-dim">{stage.deals.length} deal{stage.deals.length !== 1 ? 's' : ''}</span>
+      {/* Stages — sorted by position */}
+      {ghl.stages.map((stage, idx) => {
+        const stageData = ghl.byStage[stage.id];
+        if (!stageData) return null;
+
+        const pct = idx / Math.max(totalStages - 1, 1);
+        const color = stageData.isTerminal ? stageColors.terminal
+          : pct < 0.33 ? stageColors.active
+          : pct < 0.66 ? stageColors.mid
+          : stageColors.late;
+
+        const hasDeals = stageData.deals.length > 0;
+
+        return (
+          <Card key={stage.id} className={`p-4 ${!hasDeals ? 'opacity-50' : ''}`}>
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }}/>
+                <span className="text-sm font-bold">{stage.name}</span>
+                <span className="text-xs text-text-dim">{stageData.deals.length}</span>
+                {stageData.isTerminal && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-bg-elev text-text-dim uppercase tracking-wider">closed</span>
+                )}
+              </div>
+              {stageData.total > 0 && (
+                <span className="text-sm font-bold" style={{ color }}>
+                  ${stageData.total.toLocaleString()}
+                </span>
+              )}
             </div>
-            <span className="text-sm font-bold" style={{ color: stageColors[idx % stageColors.length] }}>
-              ${stage.total.toLocaleString()}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {stage.deals.map(deal => (
-              <DealRow key={deal.id} deal={deal} color={stageColors[idx % stageColors.length]} />
-            ))}
-          </div>
-        </Card>
-      ))}
+
+            {hasDeals ? (
+              <div className="space-y-1.5">
+                {stageData.deals.map(deal => (
+                  <DealRow key={deal.id} deal={deal} color={color} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-text-subtle py-1 pl-4">Prázdna fáza</div>
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }
@@ -355,7 +405,7 @@ export default function BusinessPage() {
         <SectionHeader title="Ciele" meta="Klikni na číslo → úprava"/>
         <Goals stripe={stripe} ghl={ghl}/>
 
-        <SectionHeader title="Pipeline · GHL" meta={ghl ? `${ghl.activeDeals?.length || 0} aktívnych deals` : 'načítavam...'}/>
+        <SectionHeader title="Pipeline · Land Clearing" meta={ghl ? `${ghl.openDeals} open · $${ghl.totalPipelineValue.toLocaleString()}` : 'načítavam...'}/>
         <PipelineSection ghl={ghl} loading={loading}/>
 
         <SectionHeader title="Cally · GHL" meta={ghl?.appointments?.length ? `${ghl.appointments.length} tento týždeň` : ''}/>

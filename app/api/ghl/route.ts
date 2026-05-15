@@ -17,6 +17,9 @@ async function ghlFetch(path: string, apiKey: string) {
   return res.json();
 }
 
+// Target pipeline name — partial match, case insensitive
+const TARGET_PIPELINE = 'land clearing';
+
 export async function GET() {
   const apiKey = process.env.GHL_API_KEY;
   const locationId = process.env.GHL_LOCATION_ID;
@@ -25,22 +28,32 @@ export async function GET() {
   }
 
   try {
-    // Get pipelines WITH stages
+    // Get all pipelines
     const pipelinesData = await ghlFetch(`/opportunities/pipelines?locationId=${locationId}`, apiKey);
-    const pipelines: { id: string; name: string; stages: { id: string; name: string }[] }[] =
+    const allPipelines: { id: string; name: string; stages: { id: string; name: string; position?: number }[] }[] =
       pipelinesData.pipelines || [];
 
-    // Build stage map: stageId -> stageName
-    const stageMap: Record<string, string> = {};
-    for (const pipeline of pipelines) {
-      for (const stage of pipeline.stages || []) {
-        stageMap[stage.id] = stage.name;
-      }
+    // Find target pipeline — "Land Clearing"
+    const targetPipeline = allPipelines.find(p =>
+      p.name.toLowerCase().includes(TARGET_PIPELINE)
+    ) || allPipelines[0]; // fallback to first pipeline
+
+    if (!targetPipeline) {
+      return NextResponse.json({ error: 'No pipeline found', pipelines: [] }, { status: 200 });
     }
 
-    // Get all opportunities
+    // Sort stages by position
+    const sortedStages = [...(targetPipeline.stages || [])].sort((a, b) => (a.position || 0) - (b.position || 0));
+
+    // Build stage map for this pipeline
+    const stageMap: Record<string, { name: string; position: number }> = {};
+    sortedStages.forEach((s, idx) => {
+      stageMap[s.id] = { name: s.name, position: idx };
+    });
+
+    // Get all opportunities for this specific pipeline
     const oppsData = await ghlFetch(
-      `/opportunities/search?location_id=${locationId}&limit=100`,
+      `/opportunities/search?location_id=${locationId}&pipeline_id=${targetPipeline.id}&limit=100`,
       apiKey
     );
     const opportunities = oppsData.opportunities || [];
@@ -50,38 +63,61 @@ export async function GET() {
       name: string;
       status: string;
       monetaryValue?: number;
-      pipelineId?: string;
       pipelineStageId?: string;
-      contact?: { name?: string };
+      contact?: { name?: string; phone?: string };
       updatedAt?: string;
+      createdAt?: string;
     }) => ({
       id: opp.id,
       name: opp.name,
-      status: opp.status,          // open / won / lost / abandoned
+      status: opp.status, // open / won / lost / abandoned
       value: opp.monetaryValue || 0,
-      pipelineId: opp.pipelineId || '',
       stageId: opp.pipelineStageId || '',
-      stageName: stageMap[opp.pipelineStageId || ''] || opp.status || 'Unknown',
+      stageName: stageMap[opp.pipelineStageId || '']?.name || 'Unknown',
+      stagePosition: stageMap[opp.pipelineStageId || '']?.position ?? 99,
       contact: opp.contact?.name || '',
+      phone: opp.contact?.phone || '',
       updatedAt: opp.updatedAt || '',
+      createdAt: opp.createdAt || '',
     }));
 
-    const activeDeals = deals.filter((d: { status: string }) => d.status === 'open');
-    const totalPipelineValue = activeDeals.reduce((s: number, d: { value: number }) => s + d.value, 0);
+    // Sort deals by stage position
+    deals.sort((a: { stagePosition: number }, b: { stagePosition: number }) => a.stagePosition - b.stagePosition);
 
-    // Group by stage
-    const byStage: Record<string, { stageName: string; deals: typeof deals; total: number }> = {};
-    for (const deal of activeDeals) {
-      if (!byStage[deal.stageId]) {
-        byStage[deal.stageId] = { stageName: deal.stageName, deals: [], total: 0 };
+    // Group ALL deals by stage (including won/lost) — show full pipeline
+    const byStage: Record<string, {
+      stageName: string;
+      stagePosition: number;
+      deals: typeof deals;
+      total: number;
+      isTerminal: boolean;
+    }> = {};
+
+    // Initialize all stages (even empty ones)
+    sortedStages.forEach((s, idx) => {
+      byStage[s.id] = {
+        stageName: s.name,
+        stagePosition: idx,
+        deals: [],
+        total: 0,
+        isTerminal: s.name.toLowerCase().includes('closed') ||
+                    s.name.toLowerCase().includes('won') ||
+                    s.name.toLowerCase().includes('lost'),
+      };
+    });
+
+    // Fill deals into stages
+    for (const deal of deals) {
+      if (byStage[deal.stageId]) {
+        byStage[deal.stageId].deals.push(deal);
+        byStage[deal.stageId].total += deal.value;
       }
-      byStage[deal.stageId].deals.push(deal);
-      byStage[deal.stageId].total += deal.value;
     }
 
-    // Contacts
-    const contactsData = await ghlFetch(`/contacts/?locationId=${locationId}&limit=1`, apiKey).catch(() => ({ total: 0 }));
-    const totalContacts = contactsData.total || 0;
+    // Active deals (open only) for pipeline value
+    const activeDeals = deals.filter((d: { status: string }) => d.status === 'open');
+    const totalPipelineValue = activeDeals.reduce((s: number, d: { value: number }) => s + d.value, 0);
+    const totalAllValue = deals.reduce((s: number, d: { value: number }) => s + d.value, 0);
 
     // Appointments
     let appointments: { id: string; title: string; status: string; startTime: string; contact: string }[] = [];
@@ -103,16 +139,23 @@ export async function GET() {
       }));
     } catch { /* calendar optional */ }
 
+    // Contacts count
+    const contactsData = await ghlFetch(`/contacts/?locationId=${locationId}&limit=1`, apiKey).catch(() => ({ total: 0 }));
+
     return NextResponse.json({
+      pipelineName: targetPipeline.name,
+      pipelineId: targetPipeline.id,
+      stages: sortedStages,
       deals,
       activeDeals,
-      totalPipelineValue,
       byStage,
-      pipelines: pipelines.map(p => ({ id: p.id, name: p.name, stages: p.stages })),
-      totalContacts,
+      totalPipelineValue,  // only open deals
+      totalAllValue,       // all deals including won/lost
+      totalContacts: contactsData.total || 0,
       appointments,
       wonDeals: deals.filter((d: { status: string }) => d.status === 'won').length,
       lostDeals: deals.filter((d: { status: string }) => d.status === 'lost').length,
+      openDeals: activeDeals.length,
     });
 
   } catch (error) {
