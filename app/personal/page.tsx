@@ -51,8 +51,11 @@ export default function PersonalPage() {
       <TopBar />
       <main className="px-3 sm:px-4 md:px-6 py-5 max-w-[1400px] mx-auto pb-24 lg:pb-6">
 
-        <SectionHeader title="Kroky k vízii" meta="Denné" />
-        <VisionSteps log={log} update={update} />
+        <SectionHeader title="Denné metriky" meta="Rýchle zadanie" />
+        <MiniTrackers log={log} update={update} />
+
+        <SectionHeader title="Google Kalendár" meta="Čoskoro" />
+        <CalendarPlaceholder />
 
         <SectionHeader title="Spánok" meta="Garmin · čoskoro" />
         <Sleep />
@@ -63,20 +66,11 @@ export default function PersonalPage() {
         <SectionHeader title="Kofeín" meta="Live decay · sync s dashboardom" />
         <CaffeineTracker />
 
-        <SectionHeader title="Váha · Skincare" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <WeightTracker />
-          <Skincare log={log} update={update} />
-        </div>
+        <SectionHeader title="Telo" />
+        <BodyChecks log={log} update={update} />
 
-        <SectionHeader title="Meditácia · Work time" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Meditation log={log} update={update} />
-          <WorkTime log={log} update={update} />
-        </div>
-
-        <SectionHeader title="Denné metriky" />
-        <MiniTrackers log={log} update={update} />
+        <SectionHeader title="Váha" />
+        <WeightTracker />
 
         <SectionHeader title="Timeline dňa" />
         <Timeline />
@@ -625,39 +619,143 @@ function WorkTime({ log, update }: { log: Record<string, unknown>; update: (u: R
   );
 }
 
+// ─── BODY CHECKS (Skincare + Meditacia spolu) ────────────────────────────────
+function BodyChecks({ log, update }: { log: Record<string, unknown>; update: (u: Record<string, unknown>) => void }) {
+  const items = [
+    { key: 'skincare_am', label: 'Skincare AM', sub: 'Moisturizer · Vit C · Hydrating', icon: '🧴' },
+    { key: 'meditation_done', label: 'Meditácia', sub: 'Cieľ: 20 minút', icon: '🧘' },
+  ];
+  return (
+    <Card>
+      {items.map((item, i) => {
+        const done = !!log[item.key];
+        return (
+          <button key={item.key} onClick={() => update({ [item.key]: !done })}
+            className={`w-full flex items-center gap-4 p-4 ${i === 0 ? 'border-b border-border' : ''} text-left hover:bg-bg-elev/50 transition-all`}>
+            <div className={`w-11 h-11 rounded-full border-2 flex items-center justify-center text-lg flex-shrink-0 transition-all ${done ? 'bg-accent border-accent text-bg' : 'border-border-strong text-text-dim'}`}>
+              {done ? '✓' : item.icon}
+            </div>
+            <div className="flex-1">
+              <div className={`text-sm font-bold transition-all ${done ? 'line-through text-text-subtle' : ''}`}>{item.label}</div>
+              <div className="text-xs text-text-dim mt-0.5">{item.sub}</div>
+            </div>
+            {done && <span className="text-xs text-accent font-bold flex-shrink-0">✓ Hotovo</span>}
+          </button>
+        );
+      })}
+    </Card>
+  );
+}
+
+// ─── CALENDAR PLACEHOLDER ─────────────────────────────────────────────────────
+function CalendarPlaceholder() {
+  return (
+    <Card>
+      <div className="flex items-center gap-4 py-4">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-bg-elev border border-border">📅</div>
+        <div className="flex-1">
+          <div className="text-sm font-bold mb-0.5">Google Kalendár</div>
+          <div className="text-xs text-text-dim">Integrácia príde čoskoro — uvidíš tu dnešné eventy, cally a bloky automaticky</div>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-bg-elev border border-border text-text-dim flex-shrink-0">Čoskoro</span>
+      </div>
+    </Card>
+  );
+}
+
 // ─── MINI TRACKERS ────────────────────────────────────────────────────────────
 function MiniTrackers({ log, update }: { log: Record<string, unknown>; update: (u: Record<string, unknown>) => void }) {
+  const [workCat, setWorkCat] = useState('Deep work');
+  const [workInput, setWorkInput] = useState('');
+
+  const workCats = [
+    { label: 'Deep', key: 'work_deep_hours', color: '#c8ff00' },
+    { label: 'Calls', key: 'work_calls_hours', color: '#ff7849' },
+    { label: 'Admin', key: 'work_admin_hours', color: '#6db6ff' },
+    { label: 'Content', key: 'work_content_hours', color: '#a78bfa' },
+  ];
+
+  const totalWork = workCats.reduce((s, c) => s + ((log[c.key] as number) || 0), 0);
+
+  const addWork = async () => {
+    if (!workInput) return;
+    const h = parseFloat(workInput);
+    if (isNaN(h)) return;
+    const cat = workCats.find(c => c.label === workCat) || workCats[0];
+    const current = (log[cat.key] as number) || 0;
+    await update({ [cat.key]: +(current + h).toFixed(1) });
+    setWorkInput('');
+  };
+
   const trackers = [
-    { label: 'Screen · PC', key: 'screen_pc_hours', unit: 'h', max: 10, color: '#6db6ff', step: 0.5, desc: 'Cieľ max 10h' },
-    { label: 'Screen · Phone', key: 'screen_phone_hours', unit: 'h', max: 4, color: '#ff5d7a', step: 0.5, desc: 'Cieľ max 4h' },
-    { label: 'Angličtina', key: 'english_minutes', unit: 'min', max: 120, color: '#4ade80', step: 15, desc: 'Cieľ 120 min' },
-    { label: 'Dates', key: 'dates_minutes', unit: 'min', max: 300, color: '#a78bfa', step: 30, desc: 'Cieľ 5h týždeň' },
+    { label: 'Screen · PC', key: 'screen_pc_hours', unit: 'h', max: 10, color: '#6db6ff', step: 0.5, desc: 'max 10h' },
+    { label: 'Screen · Phone', key: 'screen_phone_hours', unit: 'h', max: 4, color: '#ff5d7a', step: 0.5, desc: 'max 4h' },
+    { label: 'Angličtina', key: 'english_minutes', unit: 'min', max: 120, color: '#4ade80', step: 15, desc: '120 min' },
+    { label: 'Dates', key: 'dates_minutes', unit: 'min', max: 300, color: '#a78bfa', step: 30, desc: '5h/týždeň' },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {trackers.map(t => {
-        const val = (log[t.key] as number) || 0;
-        const display = t.unit === 'h' ? val.toFixed(1) : val;
-        return (
-          <div key={t.key} className="bg-bg-card border border-border rounded-2xl p-5">
-            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">{t.label}</div>
-            <div className="text-2xl font-bold tracking-[-0.025em] mb-1">
-              {display}<span className="text-sm text-text-dim font-semibold ml-1">{t.unit}</span>
-            </div>
-            <div className="text-[10px] text-text-dim font-medium mb-3">{t.desc}</div>
-            <div className="h-1 bg-bg-elev rounded-full overflow-hidden mb-3">
-              <div className="h-full rounded-full transition-all" style={{ width: `${Math.min((val / t.max) * 100, 100)}%`, background: t.color }}/>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => update({ [t.key]: Math.max(0, +(val - t.step).toFixed(1)) })}
-                className="flex-1 bg-bg-elev rounded-lg py-1.5 text-sm font-bold hover:bg-bg-hover">−</button>
-              <button onClick={() => update({ [t.key]: +(val + t.step).toFixed(1) })}
-                className="flex-1 bg-bg-elev rounded-lg py-1.5 text-sm font-bold hover:bg-bg-hover">+</button>
-            </div>
+    <div className="space-y-4">
+      {/* Work time card */}
+      <div className="bg-bg-card border border-border rounded-2xl p-5">
+        <div className="flex justify-between items-center mb-4">
+          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Work time</div>
+          <span className="text-sm font-bold text-accent">{totalWork.toFixed(1)}h / 8h</span>
+        </div>
+        <div className="h-1.5 bg-bg-elev rounded-full overflow-hidden mb-4">
+          <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${Math.min((totalWork / 8) * 100, 100)}%` }}/>
+        </div>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {workCats.map(c => {
+            const val = (log[c.key] as number) || 0;
+            if (val === 0) return null;
+            return <span key={c.key} className="text-xs font-bold px-2 py-1 rounded-lg bg-bg-elev" style={{ color: c.color }}>{c.label} {val}h</span>;
+          })}
+          {totalWork === 0 && <span className="text-xs text-text-dim">Pridaj hodiny</span>}
+        </div>
+        <div className="flex gap-2">
+          <div className="flex gap-1">
+            {workCats.map(c => (
+              <button key={c.key} onClick={() => setWorkCat(c.label)}
+                className={`px-2.5 py-2 rounded-lg text-[11px] font-bold border transition-all ${workCat === c.label ? 'text-bg border-transparent' : 'bg-bg-elev border-border text-text-dim hover:border-border-strong'}`}
+                style={workCat === c.label ? { background: c.color, borderColor: c.color } : {}}>
+                {c.label}
+              </button>
+            ))}
           </div>
-        );
-      })}
+          <input type="number" step="0.5" placeholder="1.5" value={workInput}
+            onChange={e => setWorkInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addWork()}
+            className="flex-1 bg-bg-elev border border-border rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
+          <button onClick={addWork} className="bg-accent text-bg px-4 py-2 rounded-lg text-sm font-bold">+</button>
+        </div>
+      </div>
+
+      {/* Other trackers */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {trackers.map(t => {
+          const val = (log[t.key] as number) || 0;
+          const display = t.unit === 'h' ? val.toFixed(1) : val;
+          return (
+            <div key={t.key} className="bg-bg-card border border-border rounded-2xl p-4">
+              <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">{t.label}</div>
+              <div className="text-2xl font-bold tracking-[-0.025em] mb-0.5">
+                {display}<span className="text-sm text-text-dim font-semibold ml-1">{t.unit}</span>
+              </div>
+              <div className="text-[10px] text-text-dim mb-3">{t.desc}</div>
+              <div className="h-1 bg-bg-elev rounded-full overflow-hidden mb-3">
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min((val / t.max) * 100, 100)}%`, background: t.color }}/>
+              </div>
+              <div className="flex gap-1.5">
+                <button onClick={() => update({ [t.key]: Math.max(0, +(val - t.step).toFixed(1)) })}
+                  className="flex-1 bg-bg-elev rounded-lg py-1.5 text-sm font-bold hover:bg-bg-hover">−</button>
+                <button onClick={() => update({ [t.key]: +(val + t.step).toFixed(1) })}
+                  className="flex-1 bg-bg-elev rounded-lg py-1.5 text-sm font-bold hover:bg-bg-hover">+</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

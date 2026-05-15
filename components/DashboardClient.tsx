@@ -352,22 +352,46 @@ export default function DashboardClient() {
           </div>
 
           <button onClick={() => setVisionOpen(true)}
-            className="bg-bg-card border border-border rounded-2xl p-4 text-left relative overflow-hidden group hover:border-accent transition-all">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-accent rounded-full"/>
-                <span className="text-[10px] font-bold text-text-dim uppercase tracking-[0.15em]">Vízia · 2027</span>
+            className="rounded-2xl p-4 text-left relative overflow-hidden group transition-all border"
+            style={{
+              background: 'linear-gradient(135deg, #0d1f12 0%, #0a1a0e 100%)',
+              borderColor: '#2a5a35',
+              boxShadow: '0 0 40px rgba(74, 222, 128, 0.08)',
+            }}>
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"
+              style={{ background: 'radial-gradient(circle at 50% 0%, rgba(74,222,128,0.12) 0%, transparent 70%)' }}/>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#4ade80' }}/>
+                  <span className="text-[10px] font-extrabold uppercase tracking-[0.2em]" style={{ color: '#4ade80' }}>Vízia · 2027</span>
+                </div>
+                <span className="text-[10px] font-bold group-hover:text-white transition-colors" style={{ color: '#4ade80' }}>Otvoriť →</span>
               </div>
-              <span className="text-[10px] text-text-dim group-hover:text-accent transition-colors">Otvoriť →</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div className="flex justify-between text-[10px] mb-1"><span className="text-text-dim">MRR</span><span className="font-bold">$1K / $30K</span></div>
-                <div className="h-1 bg-bg-elev rounded-full overflow-hidden"><div className="h-full bg-accent rounded-full" style={{ width: '3.3%' }}/></div>
+              <div className="mb-4">
+                <p className="text-sm font-semibold leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                  I am the authority. I lead every conversation. I built my agency from $10K → $30K.
+                </p>
               </div>
-              <div>
-                <div className="flex justify-between text-[10px] mb-1"><span className="text-text-dim">Klienti</span><span className="font-bold">2 / 10</span></div>
-                <div className="h-1 bg-bg-elev rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: '20%', background: '#c8ff00' }}/></div>
+              <div className="space-y-2">
+                <div>
+                  <div className="flex justify-between text-[10px] mb-1">
+                    <span style={{ color: '#86efac' }}>MRR</span>
+                    <span className="font-bold text-white">$1K / $30K</span>
+                  </div>
+                  <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(74,222,128,0.15)' }}>
+                    <div className="h-full rounded-full" style={{ width: '3.3%', background: '#4ade80' }}/>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[10px] mb-1">
+                    <span style={{ color: '#86efac' }}>Klienti</span>
+                    <span className="font-bold text-white">2 / 10</span>
+                  </div>
+                  <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(74,222,128,0.15)' }}>
+                    <div className="h-full rounded-full" style={{ width: '20%', background: '#4ade80' }}/>
+                  </div>
+                </div>
               </div>
             </div>
           </button>

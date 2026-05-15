@@ -405,17 +405,14 @@ export default function BusinessPage() {
         <SectionHeader title="Ciele" meta="Klikni na číslo → úprava"/>
         <Goals stripe={stripe} ghl={ghl}/>
 
+        <SectionHeader title="Úlohy · dnes"/>
+        <DailyTasks/>
+
         <SectionHeader title="Pipeline · Land Clearing" meta={ghl ? `${ghl.openDeals} open · $${ghl.totalPipelineValue.toLocaleString()}` : 'načítavam...'}/>
         <PipelineSection ghl={ghl} loading={loading}/>
 
         <SectionHeader title="Cally · GHL" meta={ghl?.appointments?.length ? `${ghl.appointments.length} tento týždeň` : ''}/>
         <CallsSection ghl={ghl} loading={loading}/>
-
-        <SectionHeader title="Úlohy · dnes"/>
-        <DailyTasks/>
-
-        <SectionHeader title="Scripty"/>
-        <ScriptsTracker/>
 
       </main>
       <MobileNav />
