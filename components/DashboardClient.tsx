@@ -344,7 +344,6 @@ export default function DashboardClient() {
     { key: 'vision_step_1', text: '$40 into ads' },
     { key: 'vision_step_2', text: '5× Remind myself my Vision' },
     { key: 'vision_step_3', text: 'Study mindset 45min' },
-    { key: 'vision_step_4', text: 'Meditation 20min' },
   ];
   const doneCount = steps.filter(s => dailyLog[s.key]).length;
 
