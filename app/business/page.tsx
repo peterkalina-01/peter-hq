@@ -70,10 +70,10 @@ function Editable({ value, onSave, className = '', prefix = '', suffix = '', ove
   );
 
   return (
-    <span onClick={start} title="Klikni pre manuálnu úpravu" className={`cursor-pointer relative group ${className}`}>
+    <span onClick={start} title="Click to edit" className={`cursor-pointer relative group ${className}`}>
       {overridden && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-warm rounded-full"/>}
       {prefix}{value}{suffix}
-      <span className="absolute -top-6 left-0 hidden group-hover:block text-[9px] bg-bg-elev border border-border px-2 py-0.5 rounded text-text-dim whitespace-nowrap z-20">✏ klikni pre úpravu</span>
+      <span className="absolute -top-6 left-0 hidden group-hover:block text-[9px] bg-bg-elev border border-border px-2 py-0.5 rounded text-text-dim whitespace-nowrap z-20">✏ click to edit</span>
     </span>
   );
 }
@@ -404,7 +404,7 @@ function Goals({ stripe, ghl }: { stripe: StripeData | null; ghl: GhlData | null
     { label: 'MRR', ov: mrrOv, goal: 30000, prefix: '$', suffix: '', note: `Remaining $${(30000 - mrrOv.v).toLocaleString()}`, color: '#c8ff00' },
     { label: 'Active clients', ov: clientsOv, goal: 10, prefix: '', suffix: '', note: `${10 - clientsOv.v} remaining`, color: '#6db6ff' },
     { label: 'Close rate', ov: rateOv, goal: 40, prefix: '', suffix: '%', note: 'Goal 40%', color: '#ff7849' },
-    { label: 'Weekly calls', ov: callsOv, goal: 25, prefix: '', suffix: '', note: 'Goal 25/týždeň', color: '#4ade80' },
+    { label: 'Weekly calls', ov: callsOv, goal: 25, prefix: '', suffix: '', note: 'Goal 25/week', color: '#4ade80' },
   ];
 
   return (

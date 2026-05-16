@@ -51,7 +51,7 @@ export default function PersonalPage() {
       <TopBar />
       <main className="px-3 sm:px-4 md:px-6 py-5 max-w-[1400px] mx-auto pb-24 lg:pb-6">
 
-        <SectionHeader title="Daily metriky" meta="Quick log" />
+        <SectionHeader title="Daily metrics" meta="Quick log" />
         <MiniTrackers log={log} update={update} />
 
         <SectionHeader title="Tasks · today" meta="Personal" />
@@ -460,7 +460,7 @@ function WeightTracker() {
         );
       })()}
       {loading ? <div className="text-xs text-text-dim text-center py-4">Loading...</div> : entries.length === 0 ? (
-        <div className="text-xs text-text-dim text-center py-4 mb-4">No entries — pridaj prvý</div>
+        <div className="text-xs text-text-dim text-center py-4 mb-4">No entries — add your first</div>
       ) : (
         <div className="mb-4 max-h-36 overflow-y-auto">
           {[...entries].reverse().map(e => (

@@ -173,15 +173,15 @@ export default function ReportPage() {
   if (workoutDays >= workoutGoal * 0.8) summaries.push({ type: 'good', text: `Workout ${workoutDays}/${workoutGoal} days — cieľ splnený.` });
   else summaries.push({ type: 'warn', text: `Workout ${workoutDays}/${workoutGoal} days. Remaining ${workoutGoal - workoutDays} tréningov.` });
   if (workPct >= 70) summaries.push({ type: 'good', text: `Work time ${totalWork.toFixed(1)}h / ${workGoal}h — dobrý výkon.` });
-  else summaries.push({ type: 'warn', text: `Work time ${totalWork.toFixed(1)}h z ${workGoal}h cieľa. Viac deep work blokov ráno.` });
+  else summaries.push({ type: 'warn', text: `Work time ${totalWork.toFixed(1)}h of ${workGoal}h goal. Add more deep work blocks in the morning.` });
   if (meditationPct >= 80) summaries.push({ type: 'good', text: `Meditation ${meditationMins} min — streak funguje.` });
-  else summaries.push({ type: 'bad', text: `Meditation ${meditationMins} min / ${meditationGoal} min cieľ. Pridaj 20 min pred spaním.` });
+  else summaries.push({ type: 'bad', text: `Meditation ${meditationMins} min / ${meditationGoal} min goal. Add 20 min before bed.` });
 
   if (loading) return (
     <>
       <TopBar />
       <main className="flex items-center justify-center h-[60vh]">
-        <div className="text-text-dim text-sm animate-pulse">Načítavam dáta zo Supabase...</div>
+        <div className="text-text-dim text-sm animate-pulse">Loading data from Supabase...</div>
       </main>
       <MobileNav />
     </>
@@ -326,7 +326,7 @@ export default function ReportPage() {
                   </div>
                 </div>
               ))}
-              <div className="text-[10px] text-text-dim mt-2">Screen time zaznamenáš manual na Personal stránke</div>
+              <div className="text-[10px] text-text-dim mt-2">Log screen time manually on Personal page</div>
             </div>
           </MetricCard>
 
