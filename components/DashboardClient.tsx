@@ -58,46 +58,81 @@ function VisionModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/85 backdrop-blur-md" />
       <div
-        className="relative w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border border-border"
-        style={{ background: 'linear-gradient(160deg, #1a1208 0%, #0f0f14 40%, #0a0f0a 100%)' }}
+        className="relative w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[88vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl"
+        style={{
+          background: 'linear-gradient(160deg, #071a0e 0%, #0a1f12 30%, #060f0a 100%)',
+          border: '1px solid rgba(74, 222, 128, 0.25)',
+          boxShadow: '0 0 80px rgba(74, 222, 128, 0.15), 0 0 200px rgba(74, 222, 128, 0.06), inset 0 1px 0 rgba(74,222,128,0.1)',
+        }}
         onClick={e => e.stopPropagation()}
       >
+        {/* Subtle noise texture */}
+        <div className="absolute inset-0 opacity-[0.015] pointer-events-none rounded-t-3xl sm:rounded-3xl"
+          style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")', backgroundSize: '150px' }}
+        />
+        {/* Glow top */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse, rgba(74,222,128,0.18) 0%, transparent 70%)' }}/>
+
+        {/* Drag handle mobile */}
         <div className="flex justify-center pt-3 sm:hidden">
-          <div className="w-10 h-1 bg-border-strong rounded-full"/>
+          <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(74,222,128,0.3)' }}/>
         </div>
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none rounded-t-3xl sm:rounded-2xl" style={{
-          backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, #ff7849 31px, #ff7849 32px)',
-          backgroundPositionY: '48px',
-        }}/>
-        <div className="relative p-6 sm:p-8">
-          <div className="flex justify-between items-start mb-6">
+
+        <div className="relative p-6 sm:p-10">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-8">
             <div>
-              <div className="text-[10px] font-bold text-accent/70 uppercase tracking-[0.2em] mb-2">My Vision · 2027</div>
-              <div className="w-10 h-0.5 bg-accent opacity-40 rounded-full"/>
-            </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-lg bg-bg-elev border border-border text-text-dim flex items-center justify-center text-sm">✕</button>
-          </div>
-          <div className="space-y-7">
-            {Object.entries(visionPoints).map(([category, points]) => (
-              <div key={category}>
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.2em] mb-3" style={{
-                  color: category === 'Identity' ? '#ff7849' : category === 'Mindset' ? '#c8ff00' : category === 'Execution' ? '#6db6ff' : '#a78bfa'
-                }}>{category}</div>
-                <div className="space-y-2.5">
-                  {points.map((point, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <span className="text-[10px] text-text-dim font-mono mt-1 flex-shrink-0 opacity-40">{String(i + 1).padStart(2, '0')}</span>
-                      <p className="text-sm sm:text-base font-medium leading-relaxed text-text/90">{point}</p>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#4ade80' }}/>
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.25em]" style={{ color: '#4ade80' }}>My Vision · 2027</span>
               </div>
-            ))}
-            <div className="pt-4 border-t border-white/[0.06]">
-              <div className="text-[10px] text-text-dim">Peter Kalina · LeadsFlow Media</div>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-[-0.03em] leading-tight" style={{ color: '#f0fff4' }}>
+                Who I Am<br/>
+                <span style={{ color: '#4ade80' }}>& Who I&apos;m Becoming.</span>
+              </h2>
             </div>
+            <button onClick={onClose}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-sm transition-all hover:opacity-70"
+              style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)', color: '#4ade80' }}>
+              ✕
+            </button>
+          </div>
+
+          {/* Vision categories */}
+          <div className="space-y-8">
+            {Object.entries(visionPoints).map(([category, points]) => {
+              const catColors: Record<string, { accent: string; bg: string }> = {
+                Identity: { accent: '#4ade80', bg: 'rgba(74,222,128,0.06)' },
+                Mindset: { accent: '#86efac', bg: 'rgba(134,239,172,0.06)' },
+                Execution: { accent: '#6db6ff', bg: 'rgba(109,182,255,0.06)' },
+                Lifestyle: { accent: '#a78bfa', bg: 'rgba(167,139,250,0.06)' },
+              };
+              const col = catColors[category] || catColors.Identity;
+              return (
+                <div key={category} className="rounded-2xl p-5" style={{ background: col.bg, border: `1px solid ${col.accent}20` }}>
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.2em] mb-4" style={{ color: col.accent }}>
+                    {category}
+                  </div>
+                  <div className="space-y-3">
+                    {points.map((point, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <span className="text-[11px] font-bold mt-0.5 flex-shrink-0" style={{ color: col.accent }}>→</span>
+                        <p className="text-sm sm:text-[15px] font-medium leading-relaxed" style={{ color: 'rgba(240,255,244,0.9)' }}>{point}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 pt-6 flex items-center justify-between" style={{ borderTop: '1px solid rgba(74,222,128,0.1)' }}>
+            <div className="text-[10px] font-semibold" style={{ color: 'rgba(74,222,128,0.5)' }}>Peter Kalina · LeadsFlow Media</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'rgba(74,222,128,0.4)' }}>Read daily</div>
           </div>
         </div>
       </div>

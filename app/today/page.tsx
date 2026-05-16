@@ -368,10 +368,10 @@ export default function TodayPage() {
     await updateDailyLog(updates);
   };
 
-  const visionKeys = ['vision_step_1', 'vision_step_2', 'vision_step_3', 'vision_step_4'];
-  const visionTexts = ['$40 into ads', '5× Remind myself my Vision', 'Study mindset 45min', 'Meditation 20min'];
+  const visionKeys = ['vision_step_1', 'vision_step_2', 'vision_step_3'];
+  const visionTexts = ['$40 into ads', '5× Remind myself my Vision', 'Study mindset 45min'];
   const visionDone = visionKeys.filter(k => log[k]).length;
-  const visionPct = (visionDone / 4) * 100;
+  const visionPct = (visionDone / 3) * 100;
 
   const workTotal = ((log.work_deep_hours as number) || 0) + ((log.work_calls_hours as number) || 0) + ((log.work_admin_hours as number) || 0) + ((log.work_content_hours as number) || 0);
 
@@ -401,14 +401,14 @@ export default function TodayPage() {
           {/* Overall progress ring */}
           <div className="relative">
             <MiniRing pct={visionPct} color="#ff7849" size={52}/>
-            <div className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-accent">{visionDone}/4</div>
+            <div className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-accent">{visionDone}/3</div>
           </div>
         </div>
 
         {/* ── VÍZIA ── */}
         <Section title="Vízia · denné kroky">
           {visionKeys.map((key, i) => (
-            <CheckRow key={key} icon="" label={visionTexts[i]} logKey={key} log={log} update={update} last={i === 3}/>
+            <CheckRow key={key} icon="" label={visionTexts[i]} logKey={key} log={log} update={update} last={i === 2}/>
           ))}
         </Section>
 
@@ -439,7 +439,7 @@ export default function TodayPage() {
           <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-4">Dnešné zhrnutie</div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Vízia', val: `${visionDone}/4`, pct: visionPct, color: '#ff7849' },
+              { label: 'Vízia', val: `${visionDone}/3`, pct: visionPct, color: '#ff7849' },
               { label: 'Work', val: `${workTotal.toFixed(1)}h`, pct: (workTotal / 8) * 100, color: '#c8ff00' },
               { label: 'Dates', val: `${((log.dates_minutes as number) || 0)}min`, pct: ((log.dates_minutes as number) || 0) / 3, color: '#a78bfa' },
               { label: 'Angličtina', val: `${(log.english_minutes as number) || 0}min`, pct: ((log.english_minutes as number) || 0) / 1.2, color: '#4ade80' },

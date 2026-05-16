@@ -200,49 +200,130 @@ function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boole
   );
 }
 
-// ─── CALLS ───────────────────────────────────────────────────────────────────
+// ─── CALLS TRACKER ───────────────────────────────────────────────────────────
+const CALL_METRICS = [
+  { key: 'dials', label: 'Dials', color: '#888894', desc: 'Celkový počet vytočení' },
+  { key: 'calls', label: 'Calls', color: '#6db6ff', desc: 'Hovor nadviazaný' },
+  { key: 'setts', label: 'Setts', color: '#ff7849', desc: 'Dohodnutý ďalší call' },
+  { key: 'closing', label: 'Closing Calls', color: '#a78bfa', desc: 'Closing call prebehol' },
+  { key: 'closed', label: 'Closed', color: '#4ade80', desc: 'Deal podpísaný' },
+];
+
 function CallsSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean }) {
-  const weekOv = useOv('calls_week', ghl?.appointments?.length || 0);
-  const wonOv = useOv('calls_won', ghl?.wonDeals || 0);
-  const rateOv = useOv('close_rate', ghl && ghl.appointments?.length ? Math.round((ghl.wonDeals / Math.max(ghl.appointments.length, 1)) * 100) : 0);
+  const today = new Date().toISOString().split('T')[0];
+  const storageKey = `calls_${today}`;
+
+  const [metrics, setMetrics] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : { dials: 0, calls: 0, setts: 0, closing: 0, closed: 0 };
+    } catch { return { dials: 0, calls: 0, setts: 0, closing: 0, closed: 0 }; }
+  });
+  const [expanded, setExpanded] = useState(false);
+
+  const update = (key: string, delta: number) => {
+    setMetrics(prev => {
+      const next = { ...prev, [key]: Math.max(0, (prev[key] || 0) + delta) };
+      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  // Percentages
+  const pickupRate = metrics.dials > 0 ? ((metrics.calls / metrics.dials) * 100).toFixed(0) : '—';
+  const settRate = metrics.calls > 0 ? ((metrics.setts / metrics.calls) * 100).toFixed(0) : '—';
+  const closeRate = metrics.closing > 0 ? ((metrics.closed / metrics.closing) * 100).toFixed(0) : '—';
+  const dialToClose = metrics.dials > 0 && metrics.closed > 0 ? (metrics.dials / metrics.closed).toFixed(1) : '—';
 
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Cally</h3>
-        <span className="text-xs text-text-dim">{loading ? 'Načítavam...' : ghl ? '✓ GHL live' : 'GHL nedostupný'}</span>
+        <h3 className="text-lg font-bold">Cally · dnes</h3>
+        <div className="flex items-center gap-2">
+          {ghl && <span className="text-[10px] text-text-dim">GHL sync</span>}
+          <button onClick={() => setExpanded(!expanded)}
+            className="text-xs font-bold px-2.5 py-1 rounded-lg bg-bg-elev border border-border text-text-dim hover:border-accent hover:text-accent transition-all">
+            {expanded ? '← Zavrieť' : 'Štatistiky →'}
+          </button>
+        </div>
       </div>
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {[
-          { lbl: 'Tento týždeň', v: weekOv.v, save: weekOv.save, ov: weekOv.ov },
-          { lbl: 'Closed', v: wonOv.v, save: wonOv.save, ov: wonOv.ov, color: 'text-accent' },
-          { lbl: 'Close rate', v: rateOv.v, save: rateOv.save, ov: rateOv.ov, suffix: '%' },
-        ].map(s => (
-          <div key={s.lbl} className="bg-bg-elev rounded-xl p-3">
-            <Editable value={s.v} onSave={s.save} overridden={s.ov} suffix={s.suffix || ''}
-              className={`text-xl font-bold tracking-tight block mb-0.5 ${s.color || ''}`}/>
-            <div className="text-[10px] text-text-dim">{s.lbl}</div>
+
+      {/* Main metric counters */}
+      <div className="grid grid-cols-5 gap-2 mb-4">
+        {CALL_METRICS.map(m => (
+          <div key={m.key} className="text-center">
+            <div className="text-[9px] font-bold uppercase tracking-wider mb-2 leading-tight" style={{ color: m.color }}>
+              {m.label.split(' ')[0]}<br/>{m.label.split(' ')[1] || ''}
+            </div>
+            <div className="text-xl font-bold mb-2" style={{ color: m.color }}>{metrics[m.key] || 0}</div>
+            <div className="flex flex-col gap-1">
+              <button onClick={() => update(m.key, 1)}
+                className="w-full py-1.5 rounded-lg text-xs font-bold text-bg transition-all hover:opacity-90"
+                style={{ background: m.color }}>+</button>
+              <button onClick={() => update(m.key, -1)}
+                className="w-full py-1.5 rounded-lg text-xs font-bold border border-border text-text-dim hover:border-border-strong transition-all bg-bg-elev">−</button>
+            </div>
           </div>
         ))}
       </div>
 
-      {ghl?.appointments?.length ? (
-        <div className="space-y-0">
-          {ghl.appointments.slice(0, 6).map((a, i) => (
-            <div key={i} className="flex justify-between items-center py-2.5 border-b border-white/[0.04] last:border-b-0 text-xs">
-              <div>
-                <div className="font-semibold">{a.title}</div>
-                <div className="text-text-dim">{a.contact} · {a.startTime ? new Date(a.startTime).toLocaleDateString('sk-SK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+      {/* Expanded stats */}
+      {expanded && (
+        <div className="border-t border-border pt-4">
+          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Konverzné percentá</div>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {[
+              { label: 'Pickup rate', value: `${pickupRate}%`, sub: 'Calls / Dials', color: '#6db6ff' },
+              { label: 'Sett rate', value: `${settRate}%`, sub: 'Setts / Calls', color: '#ff7849' },
+              { label: 'Close rate', value: `${closeRate}%`, sub: 'Closed / Closing', color: '#4ade80' },
+              { label: 'Dials to close', value: `${dialToClose}`, sub: 'Dials per deal', color: '#a78bfa' },
+            ].map(s => (
+              <div key={s.label} className="bg-bg-elev rounded-xl p-3">
+                <div className="text-[10px] text-text-dim mb-1">{s.label}</div>
+                <div className="text-xl font-bold mb-0.5" style={{ color: s.color }}>{s.value}</div>
+                <div className="text-[10px] text-text-dim">{s.sub}</div>
               </div>
-              <span className={`px-2 py-0.5 rounded font-bold ${a.status === 'confirmed' ? 'bg-accent/10 text-accent' : a.status === 'cancelled' ? 'bg-rose/10 text-rose' : 'bg-bg-elev text-text-dim'}`}>
-                {a.status || 'pending'}
-              </span>
+            ))}
+          </div>
+
+          {/* Funnel viz */}
+          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Funnel</div>
+          <div className="space-y-1.5">
+            {CALL_METRICS.map((m, i) => {
+              const base = metrics.dials || 1;
+              const val = metrics[m.key] || 0;
+              const pct = Math.min((val / base) * 100, 100);
+              return (
+                <div key={m.key}>
+                  <div className="flex justify-between text-[10px] mb-0.5">
+                    <span style={{ color: m.color }}>{m.label}</span>
+                    <span className="text-text-dim font-bold">{val}</span>
+                  </div>
+                  <div className="h-1.5 bg-bg-card rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: m.color }}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* GHL appointments */}
+          {ghl?.appointments?.length ? (
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">GHL · posledné eventy</div>
+              {ghl.appointments.slice(0, 4).map((a, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b border-white/[0.04] last:border-b-0 text-xs">
+                  <div>
+                    <div className="font-semibold">{a.title}</div>
+                    <div className="text-text-dim">{a.contact} · {a.startTime ? new Date(a.startTime).toLocaleDateString('sk-SK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded font-bold ${a.status === 'confirmed' ? 'bg-green2/10 text-green2' : a.status === 'cancelled' ? 'bg-rose/10 text-rose' : 'bg-bg-elev text-text-dim'}`}>
+                    {a.status || 'pending'}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-xs text-text-dim text-center py-3">
-          {loading ? 'Načítavam cally...' : 'Žiadne cally tento týždeň'}
+          ) : null}
         </div>
       )}
     </Card>
@@ -402,6 +483,9 @@ export default function BusinessPage() {
           </div>
         </div>
 
+        <SectionHeader title="Cally · dnes" meta="Dials → Closed"/>
+        <CallsSection ghl={ghl} loading={loading}/>
+
         <SectionHeader title="Ciele" meta="Klikni na číslo → úprava"/>
         <Goals stripe={stripe} ghl={ghl}/>
 
@@ -410,9 +494,6 @@ export default function BusinessPage() {
 
         <SectionHeader title="Pipeline · Land Clearing" meta={ghl ? `${ghl.openDeals} open · $${ghl.totalPipelineValue.toLocaleString()}` : 'načítavam...'}/>
         <PipelineSection ghl={ghl} loading={loading}/>
-
-        <SectionHeader title="Cally · GHL" meta={ghl?.appointments?.length ? `${ghl.appointments.length} tento týždeň` : ''}/>
-        <CallsSection ghl={ghl} loading={loading}/>
 
       </main>
       <MobileNav />
