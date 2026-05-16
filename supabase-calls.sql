@@ -26,3 +26,18 @@ create table if not exists overrides (
 
 alter table overrides enable row level security;
 create policy "Allow all" on overrides for all using (true) with check (true);
+
+-- Weekly goals
+create table if not exists weekly_goals (
+  id uuid default gen_random_uuid() primary key,
+  week_start date not null,  -- always Monday
+  goal_index integer not null check (goal_index in (0,1,2)),
+  title text not null default '',
+  notes text not null default '',
+  done boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(week_start, goal_index)
+);
+alter table weekly_goals enable row level security;
+create policy "Allow all" on weekly_goals for all using (true) with check (true);

@@ -282,6 +282,144 @@ function ActivityRow({ label, done: initialDone, meta, color, onToggle }: {
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────────────────
+// ─── WEEKLY GOALS SECTION ────────────────────────────────────────────────────
+type GoalItem = { id?: string; goal_index: number; title: string; notes: string; done: boolean };
+
+function WeeklyGoalsSection({ goals, offset, onOffsetChange, onSave, getWeekStart }: {
+  goals: GoalItem[];
+  offset: number;
+  onOffsetChange: (o: number) => void;
+  onSave: (index: number, updates: Partial<GoalItem>) => void;
+  getWeekStart: (offset?: number) => string;
+}) {
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const isCurrentWeek = offset === 0;
+
+  const weekStart = getWeekStart(offset);
+  const weekEnd = (() => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 6);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  })();
+  const weekStartFmt = new Date(weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const doneCount = goals.filter(g => g.done && g.title).length;
+  const totalCount = goals.filter(g => g.title).length;
+
+  const startEdit = (i: number) => {
+    if (!isCurrentWeek) return;
+    setEditingIndex(i);
+    setEditTitle(goals[i].title);
+  };
+
+  const saveTitle = (i: number) => {
+    if (editTitle.trim() !== goals[i].title) onSave(i, { title: editTitle.trim() });
+    setEditingIndex(null);
+  };
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-3 px-1">
+        <div>
+          <div className="text-sm font-bold">Weekly goals</div>
+          <div className="text-[10px] text-text-dim">{weekStartFmt} – {weekEnd}
+            {isCurrentWeek && <span className="ml-1.5 text-accent font-semibold">· current week</span>}
+            {!isCurrentWeek && <span className="ml-1.5 text-text-subtle font-semibold">· read only</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {totalCount > 0 && isCurrentWeek && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md mr-2 ${doneCount === totalCount ? 'bg-accent/10 text-accent' : 'bg-bg-elev text-text-dim'}`}>
+              {doneCount}/{totalCount}
+            </span>
+          )}
+          <button onClick={() => onOffsetChange(offset - 1)}
+            className="w-7 h-7 bg-bg-card border border-border rounded-lg text-xs font-bold text-text-dim hover:border-border-strong transition-all">←</button>
+          {offset < 0 && (
+            <button onClick={() => onOffsetChange(offset + 1)}
+              className="w-7 h-7 bg-bg-card border border-border rounded-lg text-xs font-bold text-text-dim hover:border-border-strong transition-all">→</button>
+          )}
+          {offset === 0 && <div className="w-7"/>}
+        </div>
+      </div>
+
+      <div className="bg-bg-card border border-border rounded-2xl overflow-hidden">
+        {goals.map((goal, i) => (
+          <div key={i} className={i < 2 ? 'border-b border-border' : ''}>
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <button
+                onClick={() => goal.title && isCurrentWeek && onSave(i, { done: !goal.done })}
+                disabled={!goal.title || !isCurrentWeek}
+                className={`w-6 h-6 rounded-lg border-2 flex-shrink-0 flex items-center justify-center transition-all ${
+                  goal.done && goal.title ? 'bg-accent border-accent' : 'border-border-strong'
+                } ${!goal.title ? 'opacity-30' : ''}`}>
+                {goal.done && goal.title && <span className="text-bg text-[10px] font-extrabold">✓</span>}
+              </button>
+
+              <div className="flex-1 min-w-0">
+                {editingIndex === i ? (
+                  <input autoFocus value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    onBlur={() => saveTitle(i)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveTitle(i); if (e.key === 'Escape') setEditingIndex(null); }}
+                    placeholder={`Goal ${i + 1}...`}
+                    className="w-full bg-transparent text-sm font-semibold outline-none border-b border-accent text-text placeholder:text-text-dim font-[inherit] pb-0.5"/>
+                ) : (
+                  <div
+                    onClick={() => goal.title ? setExpandedIndex(expandedIndex === i ? null : i) : startEdit(i)}
+                    className={`text-sm font-semibold cursor-pointer select-none transition-all ${
+                      !goal.title ? 'text-text-dim italic' : goal.done ? 'line-through text-text-subtle' : ''
+                    }`}>
+                    {goal.title || (isCurrentWeek ? `+ Add goal ${i + 1}...` : '—')}
+                  </div>
+                )}
+              </div>
+
+              {goal.title && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {isCurrentWeek && (
+                    <button onClick={() => startEdit(i)} className="text-[10px] text-text-dim hover:text-text transition-colors px-1">✏</button>
+                  )}
+                  <button onClick={() => setExpandedIndex(expandedIndex === i ? null : i)}
+                    className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all ${expandedIndex === i ? 'border-accent text-accent bg-accent/5' : 'border-border text-text-dim hover:border-border-strong'}`}>
+                    {expandedIndex === i ? '▲' : '▼'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {expandedIndex === i && goal.title && (
+              <div className="px-4 pb-4 border-t border-border/50 pt-3">
+                <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">
+                  Notes & steps {!isCurrentWeek && '· read only'}
+                </div>
+                <textarea
+                  value={goal.notes}
+                  onChange={e => isCurrentWeek && onSave(i, { notes: e.target.value })}
+                  readOnly={!isCurrentWeek}
+                  placeholder="How will you achieve this? Add steps, notes, checkpoints..."
+                  rows={4}
+                  className={`w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none text-text placeholder:text-text-dim font-[inherit] resize-none leading-relaxed transition-all ${
+                    isCurrentWeek ? 'focus:border-accent' : 'opacity-60 cursor-default'
+                  }`}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+
+        {isCurrentWeek && new Date().getDay() === 0 && !goals.some(g => g.title) && (
+          <div className="px-4 py-3 border-t border-border bg-accent/[0.03]">
+            <div className="text-xs font-semibold text-accent">📅 It&apos;s Sunday — set your goals for next week above</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardClient() {
   const [visionOpen, setVisionOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -338,6 +476,52 @@ export default function DashboardClient() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Weekly goals
+  const [weeklyGoals, setWeeklyGoals] = useState<{
+    id?: string; goal_index: number; title: string; notes: string; done: boolean;
+  }[]>([
+    { goal_index: 0, title: '', notes: '', done: false },
+    { goal_index: 1, title: '', notes: '', done: false },
+    { goal_index: 2, title: '', notes: '', done: false },
+  ]);
+  const [viewingWeekOffset, setViewingWeekOffset] = useState(0); // 0 = current week
+
+  const getWeekStart = (offset = 0) => {
+    const d = new Date();
+    const day = d.getDay(); // 0=Sun, 1=Mon...
+    const diff = (day === 0 ? -6 : 1 - day); // go to Monday
+    d.setDate(d.getDate() + diff + offset * 7);
+    return d.toISOString().split('T')[0];
+  };
+
+  const loadWeeklyGoals = async (offset = 0) => {
+    const weekStart = getWeekStart(offset);
+    const { data } = await supabase.from('weekly_goals').select('*').eq('week_start', weekStart).order('goal_index');
+    if (data && data.length > 0) {
+      const merged = [0, 1, 2].map(i => data.find((g: { goal_index: number }) => g.goal_index === i) || { goal_index: i, title: '', notes: '', done: false });
+      setWeeklyGoals(merged);
+    } else {
+      setWeeklyGoals([
+        { goal_index: 0, title: '', notes: '', done: false },
+        { goal_index: 1, title: '', notes: '', done: false },
+        { goal_index: 2, title: '', notes: '', done: false },
+      ]);
+    }
+  };
+
+  useEffect(() => { loadWeeklyGoals(viewingWeekOffset); }, [viewingWeekOffset]); // eslint-disable-line
+
+  const saveGoal = async (index: number, updates: Partial<typeof weeklyGoals[0]>) => {
+    const weekStart = getWeekStart(viewingWeekOffset);
+    const goal = { ...weeklyGoals[index], ...updates };
+    setWeeklyGoals(prev => prev.map((g, i) => i === index ? goal : g));
+    if (viewingWeekOffset !== 0) return; // don't save past weeks
+    await supabase.from('weekly_goals').upsert(
+      { week_start: weekStart, goal_index: index, title: goal.title, notes: goal.notes, done: goal.done },
+      { onConflict: 'week_start,goal_index' }
+    );
+  };
 
   // Vision steps
   const steps = [
@@ -484,6 +668,15 @@ export default function DashboardClient() {
             </div>
           </button>
         </div>
+
+        {/* ── WEEKLY GOALS ── */}
+        <WeeklyGoalsSection
+          goals={weeklyGoals}
+          offset={viewingWeekOffset}
+          onOffsetChange={setViewingWeekOffset}
+          onSave={saveGoal}
+          getWeekStart={getWeekStart}
+        />
 
         {/* ── RINGS ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
