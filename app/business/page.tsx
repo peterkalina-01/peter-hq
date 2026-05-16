@@ -124,16 +124,16 @@ function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boole
   const totalOv = useOv('pipeline_total', ghl?.totalPipelineValue || 0);
 
   if (loading) return (
-    <Card><div className="text-xs text-text-dim animate-pulse py-6 text-center">Načítavam pipeline z GHL...</div></Card>
+    <Card><div className="text-xs text-text-dim animate-pulse py-6 text-center">Loading pipeline from GHL...</div></Card>
   );
 
   if (!ghl || !ghl.stages?.length) return (
     <Card>
       <div className="flex justify-between items-center mb-3">
         <h3 className="text-lg font-bold">Pipeline</h3>
-        <span className="text-xs text-text-dim">GHL nedostupný</span>
+        <span className="text-xs text-text-dim">GHL unavailable</span>
       </div>
-      <div className="text-xs text-text-dim text-center py-6">Skontroluj GHL API key a Location ID</div>
+      <div className="text-xs text-text-dim text-center py-6">Check GHL API key and Location ID</div>
     </Card>
   );
 
@@ -159,7 +159,7 @@ function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boole
         <div className="text-right">
           <Editable value={`$${Number(totalOv.v).toLocaleString()}`} onSave={totalOv.save} overridden={totalOv.ov}
             className="text-base font-bold text-accent"/>
-          <div className="text-[10px] text-text-dim">aktívna hodnota</div>
+          <div className="text-[10px] text-text-dim">active value</div>
         </div>
       </div>
 
@@ -201,7 +201,7 @@ function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boole
                 ))}
               </div>
             ) : (
-              <div className="text-xs text-text-subtle py-1 pl-4">Prázdna fáza</div>
+              <div className="text-xs text-text-subtle py-1 pl-4">Empty stage</div>
             )}
           </Card>
         );
@@ -265,12 +265,12 @@ function CallsSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean 
     <Card>
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="text-lg font-bold">Cally · dnes</h3>
-          {saving && <span className="text-[10px] text-text-dim">Ukladám...</span>}
+          <h3 className="text-lg font-bold">Cally · today</h3>
+          {saving && <span className="text-[10px] text-text-dim">Saving...</span>}
         </div>
         <button onClick={() => setExpanded(!expanded)}
           className="text-xs font-bold px-2.5 py-1 rounded-lg bg-bg-elev border border-border text-text-dim hover:border-accent hover:text-accent transition-all">
-          {expanded ? '← Zavrieť' : 'Štatistiky →'}
+          {expanded ? '← Close' : 'Stats →'}
         </button>
       </div>
 
@@ -301,13 +301,13 @@ function CallsSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean 
 
           {/* Today percentages */}
           <div>
-            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Konverzie · dnes</div>
+            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Conversions · today</div>
             <div className="grid grid-cols-2 gap-2">
               {[
                 { label: 'Pickup rate', value: `${pickupRate}%`, sub: 'Calls / Dials', color: '#6db6ff' },
                 { label: 'Sett rate', value: `${settRate}%`, sub: 'Setts / Calls', color: '#ff7849' },
                 { label: 'Close rate', value: `${closeRate}%`, sub: 'Closed / Closing', color: '#4ade80' },
-                { label: 'Dials / deal', value: dialToClose, sub: 'Efektivita', color: '#a78bfa' },
+                { label: 'Dials / deal', value: dialToClose, sub: 'Efficiency', color: '#a78bfa' },
               ].map(s => (
                 <div key={s.label} className="bg-bg-elev rounded-xl p-3">
                   <div className="text-[10px] text-text-dim mb-1">{s.label}</div>
@@ -320,7 +320,7 @@ function CallsSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean 
 
           {/* Funnel */}
           <div>
-            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Funnel · dnes</div>
+            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Funnel · today</div>
             <div className="space-y-1.5">
               {CALL_METRICS.map(m => {
                 const val = metrics[m.key as keyof typeof metrics] || 0;
@@ -343,7 +343,7 @@ function CallsSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean 
           {/* 14-day history totals */}
           {history.length > 1 && (
             <div>
-              <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Posledných 14 dní · celkom</div>
+              <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Last 14 days · total</div>
               <div className="grid grid-cols-5 gap-2 mb-3">
                 {CALL_METRICS.map(m => (
                   <div key={m.key} className="text-center bg-bg-elev rounded-xl p-2">
@@ -373,7 +373,7 @@ function CallsSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean 
           {/* GHL appointments */}
           {ghl?.appointments?.length ? (
             <div>
-              <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">GHL · posledné eventy</div>
+              <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">GHL · recent events</div>
               {ghl.appointments.slice(0, 4).map((a, i) => (
                 <div key={i} className="flex justify-between items-center py-2 border-b border-white/[0.04] last:border-b-0 text-xs">
                   <div>
@@ -401,10 +401,10 @@ function Goals({ stripe, ghl }: { stripe: StripeData | null; ghl: GhlData | null
   const callsOv = useOv('goal_calls', ghl?.appointments?.length || 0);
 
   const goals = [
-    { label: 'MRR', ov: mrrOv, goal: 30000, prefix: '$', suffix: '', note: `Zostáva $${(30000 - mrrOv.v).toLocaleString()}`, color: '#c8ff00' },
-    { label: 'Aktívni klienti', ov: clientsOv, goal: 10, prefix: '', suffix: '', note: `${10 - clientsOv.v} zostáva`, color: '#6db6ff' },
-    { label: 'Close rate', ov: rateOv, goal: 40, prefix: '', suffix: '%', note: 'Cieľ 40%', color: '#ff7849' },
-    { label: 'Weekly calls', ov: callsOv, goal: 25, prefix: '', suffix: '', note: 'Cieľ 25/týždeň', color: '#4ade80' },
+    { label: 'MRR', ov: mrrOv, goal: 30000, prefix: '$', suffix: '', note: `Remaining $${(30000 - mrrOv.v).toLocaleString()}`, color: '#c8ff00' },
+    { label: 'Active clients', ov: clientsOv, goal: 10, prefix: '', suffix: '', note: `${10 - clientsOv.v} remaining`, color: '#6db6ff' },
+    { label: 'Close rate', ov: rateOv, goal: 40, prefix: '', suffix: '%', note: 'Goal 40%', color: '#ff7849' },
+    { label: 'Weekly calls', ov: callsOv, goal: 25, prefix: '', suffix: '', note: 'Goal 25/týždeň', color: '#4ade80' },
   ];
 
   return (
@@ -438,7 +438,7 @@ type Task = { id: string; text: string; tag: string; done: boolean; source: 'biz
 
 const TAG_COLORS: Record<string, string> = {
   Growth: '#c8ff00', Ads: '#ff7849', Pipeline: '#6db6ff',
-  Content: '#a78bfa', Sales: '#2dd4bf', Task: '#888894', Osobné: '#4ade80',
+  Content: '#a78bfa', Sales: '#2dd4bf', Task: '#888894', Personal: '#4ade80',
 };
 
 async function loadTasks(date: string): Promise<Task[]> {
@@ -460,7 +460,7 @@ function DailyTasks({ source }: { source: 'biznis' | 'osobne' }) {
 
   const tags = source === 'biznis'
     ? ['Task', 'Growth', 'Ads', 'Pipeline', 'Content', 'Sales']
-    : ['Task', 'Osobné'];
+    : ['Task', 'Personal'];
 
   const add = async () => {
     if (!newTask.trim()) return;
@@ -483,18 +483,18 @@ function DailyTasks({ source }: { source: 'biznis' | 'osobne' }) {
 
   const done = tasks.filter(t => t.done).length;
 
-  if (loading) return <Card><div className="text-xs text-text-dim animate-pulse py-4 text-center">Načítavam...</div></Card>;
+  if (loading) return <Card><div className="text-xs text-text-dim animate-pulse py-4 text-center">Loading...</div></Card>;
 
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Úlohy · dnes</h3>
+        <h3 className="text-lg font-bold">Tasks · today</h3>
         <span className={`text-xs font-bold px-2 py-1 rounded-md ${done === tasks.length && tasks.length > 0 ? 'bg-accent/10 text-accent' : 'bg-bg-elev text-text-dim'}`}>
           {done} / {tasks.length}
         </span>
       </div>
       <div className="space-y-0 mb-4">
-        {tasks.length === 0 && <div className="text-xs text-text-dim text-center py-4">Žiadne úlohy — pridaj prvú</div>}
+        {tasks.length === 0 && <div className="text-xs text-text-dim text-center py-4">No tasks — add your first</div>}
         {tasks.map(t => (
           <div key={t.id} className="flex items-center gap-3 py-3 border-b border-white/[0.04] last:border-b-0 group">
             <button onClick={() => toggle(t)}
@@ -518,7 +518,7 @@ function DailyTasks({ source }: { source: 'biznis' | 'osobne' }) {
         </select>
         <input value={newTask} onChange={e => setNewTask(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && add()}
-          placeholder="Nová úloha..."
+          placeholder="New task..."
           className="flex-1 bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none focus:border-accent text-text placeholder:text-text-dim font-[inherit]"/>
         <button onClick={add} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold">+</button>
       </div>
@@ -575,24 +575,24 @@ export default function BusinessPage() {
 
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-[-0.03em]">Biznis</h1>
+            <h1 className="text-3xl font-bold tracking-[-0.03em]">Business</h1>
             <p className="text-xs text-text-dim mt-1">
-              {loading ? 'Načítavam...' : `${ghl ? '✓ GHL' : '⚠ GHL'} · ${stripe ? '✓ Stripe' : '⚠ Stripe'}`}
-              <span className="ml-2 text-text-subtle">· Klikni na číslo pre manuálnu úpravu</span>
+              {loading ? 'Loading...' : `${ghl ? '✓ GHL' : '⚠ GHL'} · ${stripe ? '✓ Stripe' : '⚠ Stripe'}`}
+              <span className="ml-2 text-text-subtle">· Click any number to manually edit</span>
             </p>
           </div>
         </div>
 
-        <SectionHeader title="Cally · dnes" meta="Dials → Closed"/>
+        <SectionHeader title="Cally · today" meta="Dials → Closed"/>
         <CallsSection ghl={ghl} loading={loading}/>
 
-        <SectionHeader title="Ciele" meta="Klikni na číslo → úprava"/>
+        <SectionHeader title="Goals" meta="Click any number to edit"/>
         <Goals stripe={stripe} ghl={ghl}/>
 
-        <SectionHeader title="Úlohy · dnes"/>
+        <SectionHeader title="Tasks · today"/>
         <DailyTasks source="biznis"/>
 
-        <SectionHeader title="Pipeline · Land Clearing" meta={ghl ? `${ghl.openDeals} open · $${ghl.totalPipelineValue.toLocaleString()}` : 'načítavam...'}/>
+        <SectionHeader title="Pipeline · Land Clearing" meta={ghl ? `${ghl.openDeals} open · $${ghl.totalPipelineValue.toLocaleString()}` : 'loading...'}/>
         <PipelineSection ghl={ghl} loading={loading}/>
 
       </main>

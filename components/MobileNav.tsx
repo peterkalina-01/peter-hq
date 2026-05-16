@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const items = [
-  { href: '/today', label: 'Dnes', icon: '◆' },
+  { href: '/today', label: 'Today', icon: '◆' },
   { href: '/', label: 'Dashboard', icon: '⊞' },
-  { href: '/personal', label: 'Osobné', icon: '◉' },
-  { href: '/business', label: 'Biznis', icon: '▲' },
+  { href: '/personal', label: 'Personal', icon: '◉' },
+  { href: '/business', label: 'Business', icon: '▲' },
   { href: '/finance', label: '$', icon: '$' },
   { href: '/report', label: 'Report', icon: '◈' },
 ];

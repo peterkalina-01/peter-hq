@@ -58,11 +58,11 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
   return <div className={`bg-bg-card border border-border rounded-2xl p-5 ${className}`}>{children}</div>;
 }
 
-const periods = ['Dnes', '7d', '30d', 'YTD'];
+const periods = ['Today', '7d', '30d', 'YTD'];
 
 export default function FinancePage() {
   const [period, setPeriod] = useState('30d');
-  const [txTab, setTxTab] = useState('Transakcie');
+  const [txTab, setTxTab] = useState('Transactions');
   const [stripe, setStripe] = useState<StripeData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -73,7 +73,7 @@ export default function FinancePage() {
   }, []);
 
   // Overrideable values
-  const realRevenue = period === 'Dnes' ? (stripe?.revenue7d || 0) / 7
+  const realRevenue = period === 'Today' ? (stripe?.revenue7d || 0) / 7
     : period === '7d' ? stripe?.revenue7d || 0
     : period === '30d' ? stripe?.revenue30d || 0
     : (stripe?.revenue30d || 0) * 4;
@@ -88,10 +88,10 @@ export default function FinancePage() {
 
   const expenses = [
     { name: 'Meta Ads spend', pct: 54, color: '#ff7849' },
-    { name: 'Editori + creators', pct: 26, color: '#6db6ff' },
+    { name: 'Editors + creators', pct: 26, color: '#6db6ff' },
     { name: 'Software / SaaS', pct: 10, color: '#a78bfa' },
-    { name: 'Osobné výdavky', pct: 6, color: '#ff5d7a' },
-    { name: 'Iné', pct: 4, color: '#2dd4bf' },
+    { name: 'Personal výdavky', pct: 6, color: '#ff5d7a' },
+    { name: 'Other', pct: 4, color: '#2dd4bf' },
   ].map(e => ({ ...e, amount: Math.round((expO.val as number) * e.pct / 100) }));
 
   const DEFAULT_SUBS = [
@@ -131,10 +131,10 @@ export default function FinancePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-[-0.03em]">Financie</h1>
+            <h1 className="text-3xl font-bold tracking-[-0.03em]">Finance</h1>
             <p className="text-xs text-text-dim mt-1">
-              {loading ? 'Načítavam Stripe...' : stripe ? '✓ Stripe live' : '⚠ Stripe nedostupný'}
-              <span className="ml-2 text-text-subtle">· Klikni na číslo pre manuálnu úpravu</span>
+              {loading ? 'Loading Stripe...' : stripe ? '✓ Stripe live' : '⚠ Stripe unavailable'}
+              <span className="ml-2 text-text-subtle">· Click any number to manually edit</span>
             </p>
           </div>
           <div className="flex gap-1 bg-bg-elev border border-border rounded-xl p-1">
@@ -153,24 +153,24 @@ export default function FinancePage() {
             {
               label: 'MRR', colorClass: 'border-l-accent',
               value: <EditableValue value={`$${Number(mrrO.val).toLocaleString()}`} onSave={mrrO.save} onClear={mrrO.clear} isOverridden={mrrO.overridden} className="text-2xl font-bold tracking-tight text-accent"/>,
-              sub: mrrO.overridden ? '⚠ manuálne' : stripe ? '✓ Stripe live' : '— nedostupný',
+              sub: mrrO.overridden ? '⚠ manual' : stripe ? '✓ Stripe live' : '— unavailable',
               subColor: mrrO.overridden ? '#ff7849' : stripe ? '#c8ff00' : '#888',
             },
             {
-              label: `Tržby · ${period}`, colorClass: 'border-l-warm',
+              label: `Revenue · ${period}`, colorClass: 'border-l-warm',
               value: <EditableValue value={`$${Number(revO.val).toLocaleString()}`} onSave={revO.save} onClear={revO.clear} isOverridden={revO.overridden} className="text-2xl font-bold tracking-tight"/>,
-              sub: revO.overridden ? '⚠ manuálne' : stripe ? '✓ Stripe live' : '— nedostupný',
+              sub: revO.overridden ? '⚠ manual' : stripe ? '✓ Stripe live' : '— unavailable',
               subColor: revO.overridden ? '#ff7849' : stripe ? '#c8ff00' : '#888',
             },
             {
-              label: `Náklady · ${period}`, colorClass: 'border-l-cool',
+              label: `Expenses · ${period}`, colorClass: 'border-l-cool',
               value: <EditableValue value={`$${Number(expO.val).toLocaleString()}`} onSave={expO.save} onClear={expO.clear} isOverridden={expO.overridden} className="text-2xl font-bold tracking-tight"/>,
-              sub: '← Klikni pre manuálnu úpravu', subColor: '#888',
+              sub: '← Click to edit', subColor: '#888',
             },
             {
-              label: 'Čistý zisk', colorClass: 'border-l-violet',
+              label: 'Net profit', colorClass: 'border-l-violet',
               value: <span className="text-2xl font-bold tracking-tight" style={{ color: profit >= 0 ? '#c8ff00' : '#ff5d7a' }}>${profit.toLocaleString()}</span>,
-              sub: `Marža ${margin}%`, subColor: profit >= 0 ? '#c8ff00' : '#ff5d7a',
+              sub: `Margin ${margin}%`, subColor: profit >= 0 ? '#c8ff00' : '#ff5d7a',
             },
           ].map(s => (
             <div key={s.label} className={`bg-bg-elev border border-border border-l-[3px] ${s.colorClass} rounded-2xl p-4`}>
@@ -184,9 +184,9 @@ export default function FinancePage() {
         {/* Clients */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[
-            { label: 'Aktívni klienti', value: custO.val, save: custO.save, clear: custO.clear, overridden: custO.overridden, color: '#ff7849' },
-            { label: 'Aktívne sub.', value: stripe?.activeSubscriptions || '—', color: '#c8ff00' },
-            { label: 'Cieľ MRR', value: '$30,000', color: '#6db6ff' },
+            { label: 'Active clients', value: custO.val, save: custO.save, clear: custO.clear, overridden: custO.overridden, color: '#ff7849' },
+            { label: 'Active subs', value: stripe?.activeSubscriptions || '—', color: '#c8ff00' },
+            { label: 'Goal MRR', value: '$30,000', color: '#6db6ff' },
           ].map(s => (
             <Card key={s.label}>
               <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">{s.label}</div>
@@ -208,7 +208,7 @@ export default function FinancePage() {
         {/* Breakdown + Subscriptions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
           <Card>
-            <h3 className="text-sm font-bold mb-4">Náklady · breakdown</h3>
+            <h3 className="text-sm font-bold mb-4">Expenses · breakdown</h3>
             <div className="space-y-3">
               {expenses.map(it => (
                 <div key={it.name}>
@@ -228,10 +228,10 @@ export default function FinancePage() {
 
           <Card>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-bold">Predplatné</h3>
+              <h3 className="text-sm font-bold">Subscriptions</h3>
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-accent">${totalSubs.toFixed(0)} / mes</span>
-                <button onClick={() => setAddingNew(true)} className="text-xs bg-accent text-bg px-2 py-1 rounded-lg font-bold">+ Pridať</button>
+                <span className="text-base font-bold text-accent">${totalSubs.toFixed(0)} / mo</span>
+                <button onClick={() => setAddingNew(true)} className="text-xs bg-accent text-bg px-2 py-1 rounded-lg font-bold">+ Add</button>
               </div>
             </div>
 
@@ -276,7 +276,7 @@ export default function FinancePage() {
         <Card>
           <div className="flex justify-between items-center mb-4">
             <div className="flex gap-4">
-              {['Transakcie', 'Faktúry'].map(t => (
+              {['Transactions', 'Invoices'].map(t => (
                 <button key={t} onClick={() => setTxTab(t)}
                   className={`text-sm font-bold pb-1 border-b-2 transition-all ${txTab === t ? 'text-text border-accent' : 'text-text-dim border-transparent'}`}>
                   {t}
@@ -284,11 +284,11 @@ export default function FinancePage() {
               ))}
             </div>
             <span className="text-xs text-text-dim">
-              {stripe ? `${stripe.transactions.length} posledných` : loading ? 'Načítavam...' : 'Stripe nedostupný'}
+              {stripe ? `${stripe.transactions.length} latest` : loading ? 'Loading...' : 'Stripe nedostupný'}
             </span>
           </div>
 
-          {txTab === 'Transakcie' && (
+          {txTab === 'Transactions' && (
             <div className="space-y-0">
               {stripe?.transactions?.length ? stripe.transactions.map(t => (
                 <div key={t.id} className="grid grid-cols-[auto_1fr_auto] gap-4 py-3 border-b border-white/[0.04] last:border-b-0 items-center">
@@ -301,15 +301,15 @@ export default function FinancePage() {
                 </div>
               )) : (
                 <div className="text-center py-8 text-text-dim text-sm">
-                  {loading ? 'Načítavam transakcie zo Stripe...' : 'Žiadne transakcie · skontroluj Stripe key'}
+                  {loading ? 'Loading transactions from Stripe...' : 'No transactions · check Stripe key'}
                 </div>
               )}
             </div>
           )}
 
-          {txTab === 'Faktúry' && (
+          {txTab === 'Invoices' && (
             <div className="text-center py-8 text-text-dim text-sm">
-              SuperFaktúra integrácia — pridáme neskôr
+              SuperFaktúra integration — coming later
             </div>
           )}
         </Card>

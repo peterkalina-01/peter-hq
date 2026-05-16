@@ -40,7 +40,7 @@ export default function PersonalPage() {
     <>
       <TopBar />
       <main className="flex items-center justify-center h-[60vh]">
-        <div className="text-text-dim text-sm animate-pulse">Načítavam...</div>
+        <div className="text-text-dim text-sm animate-pulse">Loading...</div>
       </main>
       <MobileNav />
     </>
@@ -51,31 +51,31 @@ export default function PersonalPage() {
       <TopBar />
       <main className="px-3 sm:px-4 md:px-6 py-5 max-w-[1400px] mx-auto pb-24 lg:pb-6">
 
-        <SectionHeader title="Denné metriky" meta="Rýchle zadanie" />
+        <SectionHeader title="Daily metriky" meta="Quick log" />
         <MiniTrackers log={log} update={update} />
 
-        <SectionHeader title="Úlohy · dnes" meta="Osobné" />
+        <SectionHeader title="Tasks · today" meta="Personal" />
         <PersonalTasks />
 
-        <SectionHeader title="Google Kalendár" meta="Čoskoro" />
+        <SectionHeader title="Google Calendar" meta="Coming soon" />
         <CalendarPlaceholder />
 
-        <SectionHeader title="Spánok" meta="Garmin · čoskoro" />
+        <SectionHeader title="Sleep" meta="Garmin · coming soon" />
         <Sleep />
 
-        <SectionHeader title="Workout" meta="Manuálny log" />
+        <SectionHeader title="Workout" meta="Manual log" />
         <WorkoutTracker log={log} update={update} />
 
-        <SectionHeader title="Kofeín" meta="Live decay · sync s dashboardom" />
+        <SectionHeader title="Caffeine" meta="Live decay · synced with dashboard" />
         <CaffeineTracker />
 
-        <SectionHeader title="Telo" />
+        <SectionHeader title="Body" />
         <BodyChecks log={log} update={update} />
 
-        <SectionHeader title="Váha" />
+        <SectionHeader title="Weight" />
         <WeightTracker />
 
-        <SectionHeader title="Timeline dňa" />
+        <SectionHeader title="Day timeline" />
         <Timeline />
 
       </main>
@@ -97,7 +97,7 @@ function VisionSteps({ log, update }: { log: Record<string, unknown>; update: (u
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Kroky · dnes</h3>
+        <h3 className="text-lg font-bold">Steps · today</h3>
         <span className={`text-xs font-bold px-2 py-1 rounded-md ${done === steps.length ? 'bg-accent/10 text-accent' : 'bg-bg-elev text-text-dim'}`}>
           {done} / {steps.length}
         </span>
@@ -120,14 +120,14 @@ function Sleep() {
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Spánok</h3>
-        <span className="text-xs px-2 py-1 rounded-md bg-bg-elev text-text-dim">Garmin · čoskoro</span>
+        <h3 className="text-lg font-bold">Sleep</h3>
+        <span className="text-xs px-2 py-1 rounded-md bg-bg-elev text-text-dim">Garmin · coming soon</span>
       </div>
       <div className="flex items-center justify-center py-8">
         <div className="text-center">
           <div className="text-4xl mb-3 opacity-20">🌙</div>
-          <div className="text-sm text-text-dim font-medium">Garmin integrácia príde čoskoro</div>
-          <div className="text-xs text-text-subtle mt-1">Spánok, HRV, RHR, Deep/REM automaticky</div>
+          <div className="text-sm text-text-dim font-medium">Garmin integration coming soon</div>
+          <div className="text-xs text-text-subtle mt-1">Sleep, HRV, RHR, Deep/REM automaticky</div>
         </div>
       </div>
     </Card>
@@ -181,12 +181,12 @@ function WorkoutTracker({ log, update }: { log: Record<string, unknown>; update:
   if (logging) return (
     <Card>
       <div className="flex justify-between items-center mb-5">
-        <h3 className="text-lg font-bold">Zaznamenať workout</h3>
+        <h3 className="text-lg font-bold">Log workout</h3>
         <button onClick={() => setLogging(false)} className="text-xs text-text-dim hover:text-text">✕ Zrušiť</button>
       </div>
 
       {/* Type selection */}
-      <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Typ tréningu</div>
+      <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Workout type</div>
       <div className="grid grid-cols-2 gap-2 mb-5">
         {(Object.entries(PRESET_WORKOUTS) as [keyof typeof PRESET_WORKOUTS, typeof PRESET_WORKOUTS[keyof typeof PRESET_WORKOUTS]][]).map(([key, t]) => (
           <button key={key} onClick={() => setSelectedType(key)}
@@ -200,7 +200,7 @@ function WorkoutTracker({ log, update }: { log: Record<string, unknown>; update:
       {/* Preset exercises info */}
       {PRESET_WORKOUTS[selectedType].exercises.length > 0 && (
         <div className="bg-bg-elev rounded-xl p-4 mb-5">
-          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Typické cviky · {PRESET_WORKOUTS[selectedType].label}</div>
+          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Typical exercises · {PRESET_WORKOUTS[selectedType].label}</div>
           <div className="flex flex-wrap gap-1.5">
             {PRESET_WORKOUTS[selectedType].exercises.map(ex => (
               <span key={ex} className="text-[11px] px-2 py-1 bg-bg-card border border-border rounded-lg text-text-dim font-medium">{ex}</span>
@@ -211,7 +211,7 @@ function WorkoutTracker({ log, update }: { log: Record<string, unknown>; update:
 
       {/* Duration */}
       <div className="mb-5">
-        <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Trvanie (minúty)</div>
+        <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Duration (minutes)</div>
         <div className="flex gap-2">
           {['30', '45', '60', '75', '90'].map(m => (
             <button key={m} onClick={() => setDuration(m)}
@@ -223,7 +223,7 @@ function WorkoutTracker({ log, update }: { log: Record<string, unknown>; update:
       </div>
 
       <button onClick={finish} className="w-full bg-accent text-bg py-3.5 rounded-xl text-sm font-bold hover:bg-accent-dim transition-colors">
-        ✓ Uložiť workout · {PRESET_WORKOUTS[selectedType].label} · {duration}min
+        ✓ Save workout · {PRESET_WORKOUTS[selectedType].label} · {duration}min
       </button>
     </Card>
   );
@@ -233,7 +233,7 @@ function WorkoutTracker({ log, update }: { log: Record<string, unknown>; update:
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold">Workout</h3>
         {workoutDone && (
-          <button onClick={reset} className="text-[10px] text-text-dim hover:text-rose transition-colors">Resetovať</button>
+          <button onClick={reset} className="text-[10px] text-text-dim hover:text-rose transition-colors">Reset</button>
         )}
       </div>
 
@@ -244,7 +244,7 @@ function WorkoutTracker({ log, update }: { log: Record<string, unknown>; update:
           <div>
             <div className="text-base font-bold">{workoutType}</div>
             <div className="text-sm text-text-dim">
-              {workoutDuration > 0 ? `${workoutDuration} min aktívne` : 'Hotovo dnes'}
+              {workoutDuration > 0 ? `${workoutDuration} min active` : 'Done today'}
             </div>
           </div>
           <div className="ml-auto text-right">
@@ -257,15 +257,15 @@ function WorkoutTracker({ log, update }: { log: Record<string, unknown>; update:
         <div className="flex items-center gap-4 p-4 bg-bg-elev border border-border rounded-xl mb-4">
           <div className="w-12 h-12 bg-bg-card border border-border rounded-xl flex items-center justify-center text-text-dim text-xl flex-shrink-0">○</div>
           <div>
-            <div className="text-sm font-semibold text-text-dim">Dnes ešte nič</div>
-            <div className="text-xs text-text-subtle">Garmin sync čoskoro</div>
+            <div className="text-sm font-semibold text-text-dim">Nothing yet today</div>
+            <div className="text-xs text-text-subtle">Garmin sync coming soon</div>
           </div>
         </div>
       )}
 
       <button onClick={() => setLogging(true)}
         className={`w-full py-3 rounded-xl text-sm font-bold border transition-all ${workoutDone ? 'bg-bg-elev border-border text-text-dim hover:border-border-strong' : 'bg-accent text-bg border-accent hover:bg-accent-dim'}`}>
-        {workoutDone ? '+ Zaznamenať ďalší' : '+ Zaznamenať workout'}
+        {workoutDone ? '+ Log another' : '+ Log workout'}
       </button>
     </Card>
   );
@@ -342,12 +342,12 @@ function CaffeineTracker() {
     <Card>
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="text-lg font-bold">Kofeín</h3>
-          <div className="text-xs text-text-dim mt-0.5">Sync s dashboardom · poločas 5h</div>
+          <h3 className="text-lg font-bold">Caffeine</h3>
+          <div className="text-xs text-text-dim mt-0.5">Synced with dashboard · half-life 5h</div>
         </div>
         <div className="text-right">
           <div className="text-2xl font-bold" style={{ color: statusColor }}>{Math.round(totalNow)}<span className="text-sm text-text-dim ml-1">mg</span></div>
-          {pastCutoff && <div className="text-[10px] text-rose font-semibold">Po cutoff! ~{Math.round(mgAtSleep)}mg pri spánku</div>}
+          {pastCutoff && <div className="text-[10px] text-rose font-semibold">Past cutoff! ~{Math.round(mgAtSleep)}mg at sleep</div>}
         </div>
       </div>
       <div className="bg-bg-elev rounded-xl p-3 mb-4">
@@ -390,12 +390,12 @@ function CaffeineTracker() {
             className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
         </div>
         <div className="flex-1">
-          <div className="text-[10px] font-bold text-text-dim uppercase mb-1">Spánok o</div>
+          <div className="text-[10px] font-bold text-text-dim uppercase mb-1">Sleep o</div>
           <input type="time" value={sleepTime} onChange={e => setSleepTime(e.target.value)}
             className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
         </div>
         <div className="flex flex-col justify-end">
-          <button onClick={addEntry} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-accent-dim">+ Pridať</button>
+          <button onClick={addEntry} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-accent-dim">+ Add</button>
         </div>
       </div>
     </Card>
@@ -437,7 +437,7 @@ function WeightTracker() {
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Váha</h3>
+        <h3 className="text-lg font-bold">Weight</h3>
         {hasData && (
           <span className={`text-xs font-bold px-2 py-1 rounded-md ${parseFloat(diff) <= 0 ? 'bg-accent/10 text-accent' : 'bg-rose/10 text-rose'}`}>
             {parseFloat(diff) <= 0 ? '↓' : '↑'} {Math.abs(parseFloat(diff))} kg
@@ -459,8 +459,8 @@ function WeightTracker() {
           </div>
         );
       })()}
-      {loading ? <div className="text-xs text-text-dim text-center py-4">Načítavam...</div> : entries.length === 0 ? (
-        <div className="text-xs text-text-dim text-center py-4 mb-4">Žiadne záznamy — pridaj prvý</div>
+      {loading ? <div className="text-xs text-text-dim text-center py-4">Loading...</div> : entries.length === 0 ? (
+        <div className="text-xs text-text-dim text-center py-4 mb-4">No entries — pridaj prvý</div>
       ) : (
         <div className="mb-4 max-h-36 overflow-y-auto">
           {[...entries].reverse().map(e => (
@@ -472,14 +472,14 @@ function WeightTracker() {
         </div>
       )}
       <div className="flex gap-2">
-        <div className="flex-1"><div className="text-[10px] font-bold text-text-dim uppercase mb-1">Dátum</div>
+        <div className="flex-1"><div className="text-[10px] font-bold text-text-dim uppercase mb-1">Date</div>
           <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
             className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/></div>
-        <div className="flex-1"><div className="text-[10px] font-bold text-text-dim uppercase mb-1">Váha (kg)</div>
+        <div className="flex-1"><div className="text-[10px] font-bold text-text-dim uppercase mb-1">Weight (kg)</div>
           <input type="number" step="0.1" placeholder="74.5" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addEntry()}
             className="w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/></div>
         <div className="flex flex-col justify-end">
-          <button onClick={addEntry} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-accent-dim">+ Pridať</button>
+          <button onClick={addEntry} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-accent-dim">+ Add</button>
         </div>
       </div>
     </Card>
@@ -493,7 +493,7 @@ function Skincare({ log, update }: { log: Record<string, unknown>; update: (u: R
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold">Skincare AM</h3>
         <span className={`text-xs font-bold px-2 py-1 rounded-md ${log.skincare_am ? 'bg-accent/10 text-accent' : 'bg-bg-elev text-text-dim'}`}>
-          {log.skincare_am ? 'Hotovo ✓' : 'Čaká'}
+          {log.skincare_am ? 'Done ✓' : 'Čaká'}
         </span>
       </div>
       <button onClick={() => update({ skincare_am: !log.skincare_am })}
@@ -502,12 +502,12 @@ function Skincare({ log, update }: { log: Record<string, unknown>; update: (u: R
           {log.skincare_am ? '✓' : '○'}
         </div>
         <div className="text-left">
-          <div className="text-sm font-bold">{log.skincare_am ? 'Hotovo · ranná rutina' : 'Ešte nespravené'}</div>
-          <div className="text-xs text-text-dim">Klikni keď máš hotovo</div>
+          <div className="text-sm font-bold">{log.skincare_am ? 'Done · morning routine' : 'Not done yet'}</div>
+          <div className="text-xs text-text-dim">Tap when done</div>
         </div>
       </button>
       <div className="bg-bg-elev rounded-xl p-4">
-        <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Produkty</div>
+        <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Products</div>
         {['Moisturizer', 'Vitamin C sérum + gua sha', 'Hydrating cream'].map((p, i) => (
           <div key={i} className="text-xs font-medium py-1 text-text/85 pl-3 relative">
             <span className="absolute left-0 text-accent font-bold">·</span>{p}
@@ -530,7 +530,7 @@ function Meditation({ log, update }: { log: Record<string, unknown>; update: (u:
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Meditácia</h3>
+        <h3 className="text-lg font-bold">Meditation</h3>
       </div>
       <button onClick={toggle}
         className={`w-full flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all mb-4 ${log.meditation_done ? 'bg-accent/[0.04] border-accent/30' : 'bg-bg-elev border-border hover:border-border-strong'}`}>
@@ -538,8 +538,8 @@ function Meditation({ log, update }: { log: Record<string, unknown>; update: (u:
           {log.meditation_done ? '✓' : '🧘'}
         </div>
         <div>
-          <div className="text-sm font-bold">{log.meditation_done ? `Hotovo · ${log.meditation_minutes || minutes} min` : 'Ešte nespravené'}</div>
-          <div className="text-xs text-text-dim">Cieľ · 20 min denne</div>
+          <div className="text-sm font-bold">{log.meditation_done ? `Done · ${log.meditation_minutes || minutes} min` : 'Not done yet'}</div>
+          <div className="text-xs text-text-dim">Goal · 20 min denne</div>
         </div>
       </button>
       <div className="flex gap-2 items-center">
@@ -581,12 +581,12 @@ function WorkTime({ log, update }: { log: Record<string, unknown>; update: (u: R
     <Card>
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold">Work time</h3>
-        <span className="text-xs font-semibold px-2 py-1 rounded-md bg-accent/10 text-accent">{totalToday.toFixed(1)}h dnes</span>
+        <span className="text-xs font-semibold px-2 py-1 rounded-md bg-accent/10 text-accent">{totalToday.toFixed(1)}h today</span>
       </div>
       <div className="grid grid-cols-3 gap-3 mb-4">
         {[
-          { lbl: 'Dnes', val: `${totalToday.toFixed(1)}h`, color: 'text-accent' },
-          { lbl: 'Cieľ', val: '8h', color: '' },
+          { lbl: 'Today', val: `${totalToday.toFixed(1)}h`, color: 'text-accent' },
+          { lbl: 'Goal', val: '8h', color: '' },
           { lbl: 'Progress', val: `${Math.round((totalToday / 8) * 100)}%`, color: '' },
         ].map(s => (
           <div key={s.lbl} className="bg-bg-elev rounded-xl p-3 text-center">
@@ -606,7 +606,7 @@ function WorkTime({ log, update }: { log: Record<string, unknown>; update: (u: R
               <span className="font-bold">{x.val}h</span>
             </div>
           ))}
-        {totalToday === 0 && <div className="text-xs text-text-dim text-center py-2">Žiadne hodiny — pridaj</div>}
+        {totalToday === 0 && <div className="text-xs text-text-dim text-center py-2">No hours — add</div>}
       </div>
       <div className="flex gap-2">
         <select value={category} onChange={e => setCategory(e.target.value)}
@@ -626,7 +626,7 @@ function WorkTime({ log, update }: { log: Record<string, unknown>; update: (u: R
 function BodyChecks({ log, update }: { log: Record<string, unknown>; update: (u: Record<string, unknown>) => void }) {
   const items = [
     { key: 'skincare_am', label: 'Skincare AM', sub: 'Moisturizer · Vit C · Hydrating', icon: '🧴' },
-    { key: 'meditation_done', label: 'Meditácia', sub: 'Cieľ: 20 minút', icon: '🧘' },
+    { key: 'meditation_done', label: 'Meditation', sub: 'Goal: 20 minutes', icon: '🧘' },
   ];
   return (
     <Card>
@@ -642,7 +642,7 @@ function BodyChecks({ log, update }: { log: Record<string, unknown>; update: (u:
               <div className={`text-sm font-bold transition-all ${done ? 'line-through text-text-subtle' : ''}`}>{item.label}</div>
               <div className="text-xs text-text-dim mt-0.5">{item.sub}</div>
             </div>
-            {done && <span className="text-xs text-accent font-bold flex-shrink-0">✓ Hotovo</span>}
+            {done && <span className="text-xs text-accent font-bold flex-shrink-0">✓ Done</span>}
           </button>
         );
       })}
@@ -665,7 +665,7 @@ function PersonalTasks() {
   const add = async () => {
     if (!newTask.trim()) return;
     const { data } = await supabase.from('daily_tasks')
-      .insert({ date, text: newTask.trim(), tag: 'Osobné', done: false, source: 'osobne' })
+      .insert({ date, text: newTask.trim(), tag: 'Personal', done: false, source: 'osobne' })
       .select().single();
     if (data) setTasks(prev => [...prev, data]);
     setNewTask('');
@@ -683,18 +683,18 @@ function PersonalTasks() {
 
   const doneCount = tasks.filter(t => t.done).length;
 
-  if (loading) return <Card><div className="text-xs text-text-dim animate-pulse py-3 text-center">Načítavam...</div></Card>;
+  if (loading) return <Card><div className="text-xs text-text-dim animate-pulse py-3 text-center">Loading...</div></Card>;
 
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Úlohy · dnes</h3>
+        <h3 className="text-lg font-bold">Tasks · today</h3>
         <span className={`text-xs font-bold px-2 py-1 rounded-md ${doneCount === tasks.length && tasks.length > 0 ? 'bg-accent/10 text-accent' : 'bg-bg-elev text-text-dim'}`}>
           {doneCount} / {tasks.length}
         </span>
       </div>
       <div className="space-y-0 mb-4">
-        {tasks.length === 0 && <div className="text-xs text-text-dim text-center py-4">Žiadne úlohy — pridaj prvú</div>}
+        {tasks.length === 0 && <div className="text-xs text-text-dim text-center py-4">No tasks — add your first</div>}
         {tasks.map(t => (
           <div key={t.id} className="flex items-center gap-3 py-3 border-b border-white/[0.04] last:border-b-0 group">
             <button onClick={() => toggle(t.id, t.done)}
@@ -710,7 +710,7 @@ function PersonalTasks() {
       <div className="flex gap-2">
         <input value={newTask} onChange={e => setNewTask(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && add()}
-          placeholder="Nová osobná úloha..."
+          placeholder="New personal task..."
           className="flex-1 bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none focus:border-accent text-text placeholder:text-text-dim font-[inherit]"/>
         <button onClick={add} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold">+</button>
       </div>
@@ -725,10 +725,10 @@ function CalendarPlaceholder() {
       <div className="flex items-center gap-4 py-4">
         <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 bg-bg-elev border border-border">📅</div>
         <div className="flex-1">
-          <div className="text-sm font-bold mb-0.5">Google Kalendár</div>
-          <div className="text-xs text-text-dim">Integrácia príde čoskoro — uvidíš tu dnešné eventy, cally a bloky automaticky</div>
+          <div className="text-sm font-bold mb-0.5">Google Calendar</div>
+          <div className="text-xs text-text-dim">Integration coming soon — you'll see today's events, calls and blocks automatically</div>
         </div>
-        <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-bg-elev border border-border text-text-dim flex-shrink-0">Čoskoro</span>
+        <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-bg-elev border border-border text-text-dim flex-shrink-0">Coming soon</span>
       </div>
     </Card>
   );
@@ -761,8 +761,8 @@ function MiniTrackers({ log, update }: { log: Record<string, unknown>; update: (
   const trackers = [
     { label: 'Screen · PC', key: 'screen_pc_hours', unit: 'min', max: 600, color: '#6db6ff', step: 15, desc: 'max 10h' },
     { label: 'Screen · Phone', key: 'screen_phone_hours', unit: 'min', max: 240, color: '#ff5d7a', step: 15, desc: 'max 4h' },
-    { label: 'Angličtina', key: 'english_minutes', unit: 'min', max: 120, color: '#4ade80', step: 15, desc: '120 min' },
-    { label: 'Dates', key: 'dates_minutes', unit: 'min', max: 300, color: '#a78bfa', step: 30, desc: '5h/týždeň' },
+    { label: 'English', key: 'english_minutes', unit: 'min', max: 120, color: '#4ade80', step: 15, desc: '120 min' },
+    { label: 'Dates', key: 'dates_minutes', unit: 'min', max: 300, color: '#a78bfa', step: 30, desc: '5h/week' },
   ];
 
   // Format minutes as "1h 15min" or "45min"
@@ -792,7 +792,7 @@ function MiniTrackers({ log, update }: { log: Record<string, unknown>; update: (
             if (val === 0) return null;
             return <span key={c.key} className="text-xs font-bold px-2 py-1 rounded-lg bg-bg-elev" style={{ color: c.color }}>{c.label} {val}h</span>;
           })}
-          {totalWork === 0 && <span className="text-xs text-text-dim">Pridaj hodiny</span>}
+          {totalWork === 0 && <span className="text-xs text-text-dim">Add hours</span>}
         </div>
         <div className="flex gap-2">
           <div className="flex gap-1">
@@ -874,10 +874,10 @@ function Timeline() {
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Timeline dňa</h3>
-        <span className="text-xs text-text-dim">Hodinový log</span>
+        <h3 className="text-lg font-bold">Day timeline</h3>
+        <span className="text-xs text-text-dim">Hourly log</span>
       </div>
-      {events.length === 0 && <div className="text-xs text-text-dim text-center py-4 mb-2">Žiadne záznamy</div>}
+      {events.length === 0 && <div className="text-xs text-text-dim text-center py-4 mb-2">No entries</div>}
       {events.map((e, i) => (
         <div key={i} className="grid grid-cols-[56px_1fr_auto] gap-3 py-3 border-b border-white/[0.04] last:border-b-0 items-center">
           <div className="text-xs text-text-dim font-semibold">{e.time}</div>
@@ -888,7 +888,7 @@ function Timeline() {
       <div className="flex gap-2 mt-4">
         <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)}
           className="w-24 bg-bg-elev border border-border rounded-xl px-2 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
-        <input type="text" placeholder="Čo si robil..." value={newLabel} onChange={e => setNewLabel(e.target.value)}
+        <input type="text" placeholder="What did you do..." value={newLabel} onChange={e => setNewLabel(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && add()}
           className="flex-1 bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none focus:border-accent text-text placeholder:text-text-dim font-[inherit]"/>
         <button onClick={add} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold">+</button>

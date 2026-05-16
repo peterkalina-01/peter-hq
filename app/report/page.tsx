@@ -5,7 +5,7 @@ import MobileNav from '@/components/MobileNav';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-type Period = 'Deň' | 'Týždeň' | 'Mesiac';
+type Period = 'Deň' | 'Week' | 'Month';
 
 type DayLog = {
   date: string;
@@ -128,7 +128,7 @@ export default function ReportPage() {
   const filteredLogs = logs.filter(l => {
     const d = new Date(l.date);
     if (period === 'Deň') return l.date === now.toISOString().split('T')[0];
-    if (period === 'Týždeň') return (now.getTime() - d.getTime()) <= 7 * 24 * 3600000;
+    if (period === 'Week') return (now.getTime() - d.getTime()) <= 7 * 24 * 3600000;
     return true;
   });
 
@@ -141,16 +141,16 @@ export default function ReportPage() {
   const visionPct = visionTotal > 0 ? (visionDone / visionTotal) * 100 : 0;
 
   const workoutDays = filteredLogs.filter(l => l.workout_done).length;
-  const workoutGoal = period === 'Deň' ? 1 : period === 'Týždeň' ? 5 : 20;
+  const workoutGoal = period === 'Deň' ? 1 : period === 'Week' ? 5 : 20;
   const workoutPct = Math.min((workoutDays / workoutGoal) * 100, 100);
 
   const totalWork = filteredLogs.reduce((s, l) => s + (l.work_deep_hours || 0) + (l.work_calls_hours || 0) + (l.work_admin_hours || 0) + (l.work_content_hours || 0), 0);
-  const workGoal = period === 'Deň' ? 8 : period === 'Týždeň' ? 56 : 240;
+  const workGoal = period === 'Deň' ? 8 : period === 'Week' ? 56 : 240;
   const workPct = Math.min((totalWork / workGoal) * 100, 100);
 
   const meditationDays = filteredLogs.filter(l => l.meditation_done).length;
   const meditationMins = filteredLogs.reduce((s, l) => s + (l.meditation_minutes || 0), 0);
-  const meditationGoal = period === 'Deň' ? 20 : period === 'Týždeň' ? 140 : 600;
+  const meditationGoal = period === 'Deň' ? 20 : period === 'Week' ? 140 : 600;
   const meditationPct = Math.min((meditationMins / meditationGoal) * 100, 100);
 
   const weights = logs.filter(l => l.weight_kg).map(l => ({ date: l.date, kg: l.weight_kg as number }));
@@ -168,14 +168,14 @@ export default function ReportPage() {
 
   // Generate AI summary
   const summaries: { type: 'good' | 'warn' | 'bad'; text: string }[] = [];
-  if (visionPct >= 75) summaries.push({ type: 'good', text: `Kroky k vízii ${Math.round(visionPct)}% — konzistentný. Pokračuj.` });
-  else summaries.push({ type: 'warn', text: `Kroky k vízii len ${Math.round(visionPct)}%. Každý deň 4/4 je základ.` });
-  if (workoutDays >= workoutGoal * 0.8) summaries.push({ type: 'good', text: `Workout ${workoutDays}/${workoutGoal} dní — cieľ splnený.` });
-  else summaries.push({ type: 'warn', text: `Workout ${workoutDays}/${workoutGoal} dní. Zostáva ${workoutGoal - workoutDays} tréningov.` });
+  if (visionPct >= 75) summaries.push({ type: 'good', text: `Steps k vízii ${Math.round(visionPct)}% — konzistentný. Keep going.` });
+  else summaries.push({ type: 'warn', text: `Steps k vízii len ${Math.round(visionPct)}%. Every day 4/4 je základ.` });
+  if (workoutDays >= workoutGoal * 0.8) summaries.push({ type: 'good', text: `Workout ${workoutDays}/${workoutGoal} days — cieľ splnený.` });
+  else summaries.push({ type: 'warn', text: `Workout ${workoutDays}/${workoutGoal} days. Remaining ${workoutGoal - workoutDays} tréningov.` });
   if (workPct >= 70) summaries.push({ type: 'good', text: `Work time ${totalWork.toFixed(1)}h / ${workGoal}h — dobrý výkon.` });
   else summaries.push({ type: 'warn', text: `Work time ${totalWork.toFixed(1)}h z ${workGoal}h cieľa. Viac deep work blokov ráno.` });
-  if (meditationPct >= 80) summaries.push({ type: 'good', text: `Meditácia ${meditationMins} min — streak funguje.` });
-  else summaries.push({ type: 'bad', text: `Meditácia ${meditationMins} min / ${meditationGoal} min cieľ. Pridaj 20 min pred spaním.` });
+  if (meditationPct >= 80) summaries.push({ type: 'good', text: `Meditation ${meditationMins} min — streak funguje.` });
+  else summaries.push({ type: 'bad', text: `Meditation ${meditationMins} min / ${meditationGoal} min cieľ. Pridaj 20 min pred spaním.` });
 
   if (loading) return (
     <>
@@ -196,10 +196,10 @@ export default function ReportPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold tracking-[-0.03em]">Report</h1>
-            <p className="text-xs text-text-dim mt-1">{logs.length} dní dát · Supabase live</p>
+            <p className="text-xs text-text-dim mt-1">{logs.length} days of data · Supabase live</p>
           </div>
           <div className="flex gap-1 bg-bg-elev border border-border rounded-xl p-1">
-            {(['Deň', 'Týždeň', 'Mesiac'] as Period[]).map(p => (
+            {(['Deň', 'Week', 'Month'] as Period[]).map(p => (
               <button key={p} onClick={() => setPeriod(p)}
                 className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${period === p ? 'bg-accent text-bg' : 'text-text-dim hover:text-text'}`}>
                 {p}
@@ -211,23 +211,23 @@ export default function ReportPage() {
         {logs.length === 0 && (
           <div className="bg-bg-card border border-border rounded-2xl p-8 text-center mb-6">
             <div className="text-4xl mb-3 opacity-20">📊</div>
-            <div className="text-base font-bold mb-1">Zatiaľ žiadne dáta</div>
-            <div className="text-sm text-text-dim">Začni zaznamenávať aktivity na Personal stránke — dáta sa tu zobrazia automaticky.</div>
+            <div className="text-base font-bold mb-1">No data yet</div>
+            <div className="text-sm text-text-dim">Start logging activities on the Personal page — data will appear here automatically.</div>
           </div>
         )}
 
         {/* Rings */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-          <MetricCard title="Kroky k vízii">
+          <MetricCard title="Steps k vízii">
             <div className="flex items-center gap-3">
               <Ring pct={visionPct} color="#ff7849" size={72} stroke={6}>
                 <span className="text-sm font-bold text-accent">{Math.round(visionPct)}%</span>
               </Ring>
               <div>
                 <div className="text-lg font-bold">{visionDone}/{visionTotal}</div>
-                <div className="text-xs text-text-dim">splnené</div>
+                <div className="text-xs text-text-dim">completed</div>
                 <div className="text-xs mt-1" style={{ color: visionPct >= 75 ? '#c8ff00' : '#ff7849' }}>
-                  {visionPct >= 75 ? '✓ Dobrý výkon' : '↑ Zlepšiť'}
+                  {visionPct >= 75 ? '✓ Good performance' : '↑ Improve'}
                 </div>
               </div>
             </div>
@@ -240,9 +240,9 @@ export default function ReportPage() {
               </Ring>
               <div>
                 <div className="text-lg font-bold">{workoutDays}/{workoutGoal}</div>
-                <div className="text-xs text-text-dim">dní</div>
+                <div className="text-xs text-text-dim">days</div>
                 <div className="text-xs mt-1" style={{ color: workoutPct >= 80 ? '#c8ff00' : '#ff7849' }}>
-                  {workoutPct >= 80 ? '✓ Cieľ' : '↑ Pokračuj'}
+                  {workoutPct >= 80 ? '✓ Goal' : '↑ Keep going'}
                 </div>
               </div>
             </div>
@@ -261,15 +261,15 @@ export default function ReportPage() {
             {workTrend.length > 1 && <div className="mt-3"><LineChart data={workTrend} color="#c8ff00" height={35}/></div>}
           </MetricCard>
 
-          <MetricCard title="Meditácia">
+          <MetricCard title="Meditation">
             <div className="flex items-center gap-3">
               <Ring pct={meditationPct} color="#2dd4bf" size={72} stroke={6}>
                 <span className="text-sm font-bold text-teal">{meditationMins}m</span>
               </Ring>
               <div>
                 <div className="text-lg font-bold">{meditationDays}</div>
-                <div className="text-xs text-text-dim">dní / {count}</div>
-                <div className="text-xs text-teal mt-1">{meditationPct >= 80 ? '✓ Streak' : '↑ Každý deň'}</div>
+                <div className="text-xs text-text-dim">days / {count}</div>
+                <div className="text-xs text-teal mt-1">{meditationPct >= 80 ? '✓ Streak' : '↑ Every day'}</div>
               </div>
             </div>
           </MetricCard>
@@ -278,7 +278,7 @@ export default function ReportPage() {
         {/* Second row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
 
-          <MetricCard title="Váha">
+          <MetricCard title="Weight">
             {weights.length >= 2 ? (
               <>
                 <div className="flex justify-between items-center mb-3">
@@ -292,20 +292,20 @@ export default function ReportPage() {
                 <LineChart data={weights.slice(-10).map(w => w.kg)} color="#c8ff00" height={50}/>
               </>
             ) : (
-              <div className="text-xs text-text-dim text-center py-6">Zadaj váhu na Personal stránke</div>
+              <div className="text-xs text-text-dim text-center py-6">Log weight on Personal page</div>
             )}
           </MetricCard>
 
-          <MetricCard title="Kofeín · dnes">
+          <MetricCard title="Caffeine · today">
             <div className="flex justify-between items-center mb-3">
               <div className="text-2xl font-bold" style={{ color: caffeineToday > 200 ? '#ff5d7a' : caffeineToday > 100 ? '#ff7849' : '#c8ff00' }}>
                 {caffeineToday}mg
               </div>
-              <div className="text-xs text-text-dim">Aktuálne v tele</div>
+              <div className="text-xs text-text-dim">Currently active</div>
             </div>
             <div className="space-y-2">
-              <div className="flex justify-between text-xs"><span className="text-text-dim">Skincare dní</span><span className="font-bold">{skincareDays}/{count}</span></div>
-              <div className="flex justify-between text-xs"><span className="text-text-dim">Angličtina</span><span className="font-bold">{filteredLogs.reduce((s, l) => s + (l.english_minutes || 0), 0)} min</span></div>
+              <div className="flex justify-between text-xs"><span className="text-text-dim">Skincare days</span><span className="font-bold">{skincareDays}/{count}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-text-dim">English</span><span className="font-bold">{filteredLogs.reduce((s, l) => s + (l.english_minutes || 0), 0)} min</span></div>
               <div className="flex justify-between text-xs"><span className="text-text-dim">Dates</span><span className="font-bold">{(totalDates / 60).toFixed(1)}h</span></div>
             </div>
           </MetricCard>
@@ -313,8 +313,8 @@ export default function ReportPage() {
           <MetricCard title="Screen time">
             <div className="space-y-3">
               {[
-                { label: 'PC priemer', val: avgPCScreen, goal: 10, color: '#6db6ff' },
-                { label: 'Phone priemer', val: avgPhoneScreen, goal: 4, color: '#ff5d7a' },
+                { label: 'PC avg', val: avgPCScreen, goal: 10, color: '#6db6ff' },
+                { label: 'Phone avg', val: avgPhoneScreen, goal: 4, color: '#ff5d7a' },
               ].map(s => (
                 <div key={s.label}>
                   <div className="flex justify-between text-xs mb-1.5">
@@ -326,15 +326,15 @@ export default function ReportPage() {
                   </div>
                 </div>
               ))}
-              <div className="text-[10px] text-text-dim mt-2">Screen time zaznamenáš manuálne na Personal stránke</div>
+              <div className="text-[10px] text-text-dim mt-2">Screen time zaznamenáš manual na Personal stránke</div>
             </div>
           </MetricCard>
 
-          <MetricCard title="Biznis">
+          <MetricCard title="Business">
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'MRR', value: stripe ? `$${stripe.mrr.toLocaleString()}` : '—', color: '#ff7849' },
-                { label: 'Klienti', value: stripe ? `${stripe.activeCustomers}` : '—', color: '#c8ff00' },
+                { label: 'Clients', value: stripe ? `${stripe.activeCustomers}` : '—', color: '#c8ff00' },
                 { label: 'Pipeline', value: ghl ? `$${ghl.totalPipelineValue.toLocaleString()}` : '—', color: '#6db6ff' },
                 { label: 'Closed', value: ghl ? `${ghl.wonDeals}` : '—', color: '#4ade80' },
               ].map(k => (
@@ -348,7 +348,7 @@ export default function ReportPage() {
 
           <MetricCard title="Dates" className="md:col-span-1">
             <div className="flex items-center gap-4">
-              <Ring pct={Math.min((totalDates / (period === 'Deň' ? 180 : period === 'Týždeň' ? 600 : 2400)) * 100, 100)}
+              <Ring pct={Math.min((totalDates / (period === 'Deň' ? 180 : period === 'Week' ? 600 : 2400)) * 100, 100)}
                 color="#a78bfa" size={72} stroke={6}>
                 <span className="text-sm font-bold text-violet">{(totalDates / 60).toFixed(1)}h</span>
               </Ring>
@@ -368,7 +368,7 @@ export default function ReportPage() {
             <div>
               <div className="text-sm font-bold">Zhrnutie · {period}</div>
               <div className="text-xs text-text-dim">
-                {logs.length > 0 ? 'Analýza tvojich reálnych dát' : 'Zatiaľ žiadne dáta na analýzu'}
+                {logs.length > 0 ? 'Analysis of your real data' : 'No data yet na analýzu'}
               </div>
             </div>
           </div>
@@ -377,7 +377,7 @@ export default function ReportPage() {
               {summaries.map((s, i) => <SummaryRow key={i} type={s.type} text={s.text}/>)}
             </div>
           ) : (
-            <div className="text-sm text-text-dim text-center py-4">Začni zaznamenávať aktivity — zhrnutie sa tu objaví automaticky.</div>
+            <div className="text-sm text-text-dim text-center py-4">Start logging activities — summary will appear automatically.</div>
           )}
         </div>
 

@@ -28,18 +28,18 @@ function DashboardTasks() {
 
   const TAG_COLORS: Record<string, string> = {
     Growth: '#c8ff00', Ads: '#ff7849', Pipeline: '#6db6ff',
-    Content: '#a78bfa', Sales: '#2dd4bf', Task: '#888894', Osobné: '#4ade80',
+    Content: '#a78bfa', Sales: '#2dd4bf', Task: '#888894', Personal: '#4ade80',
   };
 
   if (tasks.length === 0) return (
     <div className="text-[10px] text-text-dim text-center py-3">
-      Pridaj úlohy cez Biznis alebo Osobné stránku
+      Add tasks via Business or Personal page
     </div>
   );
 
   return (
     <div>
-      <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Úlohy</div>
+      <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Tasks</div>
       <div className="space-y-1">
         {tasks.map(t => (
           <button key={t.id} onClick={() => toggle(t)}
@@ -223,7 +223,7 @@ function CaffeinePeakGraph({ entries }: { entries: { mg: number; time_logged: st
   return (
     <div className="bg-bg-elev rounded-xl p-3 border border-border">
       <div className="flex justify-between items-center mb-2">
-        <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Kofeín peak</div>
+        <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Caffeine peak</div>
         <div className="text-xs font-bold" style={{ color: currentMg > 100 ? '#ff7849' : currentMg > 40 ? '#c8ff00' : '#888894' }}>
           {Math.round(currentMg)}mg now
         </div>
@@ -409,7 +409,7 @@ export default function DashboardClient() {
   if (loading) {
     return (
       <main className="flex items-center justify-center h-[60vh]">
-        <div className="text-text-dim text-sm font-medium animate-pulse">Načítavam dáta...</div>
+        <div className="text-text-dim text-sm font-medium animate-pulse">Loading...</div>
       </main>
     );
   }
@@ -432,7 +432,7 @@ export default function DashboardClient() {
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-[-0.03em] mb-1">
                 {greeting}, <span className="text-accent">Peter.</span>
               </h1>
-              <p className="text-text-dim text-xs sm:text-sm font-medium mb-4">Garmin sync čoskoro · recovery —</p>
+              <p className="text-text-dim text-xs sm:text-sm font-medium mb-4">Garmin sync coming soon · recovery —</p>
               <div className="border-l-2 border-accent pl-3 py-0.5">
                 <p className="text-xs sm:text-sm font-medium leading-relaxed text-text/85 mb-1 line-clamp-3">„{quote.text}"</p>
                 <p className="text-[10px] text-text-dim">— {quote.author}</p>
@@ -453,9 +453,9 @@ export default function DashboardClient() {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#4ade80' }}/>
-                  <span className="text-[10px] font-extrabold uppercase tracking-[0.2em]" style={{ color: '#4ade80' }}>Vízia · 2027</span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-[0.2em]" style={{ color: '#4ade80' }}>Vision · 2027</span>
                 </div>
-                <span className="text-[10px] font-bold group-hover:text-white transition-colors" style={{ color: '#4ade80' }}>Otvoriť →</span>
+                <span className="text-[10px] font-bold group-hover:text-white transition-colors" style={{ color: '#4ade80' }}>Open →</span>
               </div>
               <div className="mb-4">
                 <p className="text-sm font-semibold leading-relaxed" style={{ color: 'rgba(255,255,255,0.85)' }}>
@@ -474,7 +474,7 @@ export default function DashboardClient() {
                 </div>
                 <div>
                   <div className="flex justify-between text-[10px] mb-1">
-                    <span style={{ color: '#86efac' }}>Klienti</span>
+                    <span style={{ color: '#86efac' }}>Clients</span>
                     <span className="font-bold text-white">2 / 10</span>
                   </div>
                   <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(74,222,128,0.15)' }}>
@@ -493,7 +493,7 @@ export default function DashboardClient() {
               <span className="text-[10px] font-bold text-text-dim">—</span>
             </Ring>
             <div className="min-w-0">
-              <div className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Spánok</div>
+              <div className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Sleep</div>
               <div className="text-sm font-bold text-text-dim">Garmin</div>
               <div className="text-[10px] text-text-subtle leading-tight">čoskoro</div>
             </div>
@@ -504,7 +504,7 @@ export default function DashboardClient() {
               <Ring pct={(doneCount / steps.length) * 100} color="#ff7849" size={60} stroke={5}>
                 <span className="text-sm font-bold text-accent">{doneCount}/{steps.length}</span>
               </Ring>
-              <div><div className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Kroky</div><div className="text-sm font-bold">dnes</div></div>
+              <div><div className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Steps</div><div className="text-sm font-bold">today</div></div>
             </div>
             <div className="space-y-1.5">
               {steps.map((s) => (
@@ -528,7 +528,7 @@ export default function DashboardClient() {
             <div className="min-w-0">
               <div className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Work</div>
               <div className="text-sm font-bold">{(((dailyLog.work_deep_hours as number) || 0) + ((dailyLog.work_calls_hours as number) || 0)).toFixed(1)}h</div>
-              <div className="text-[10px] text-text-dim">/ 8h cieľ</div>
+              <div className="text-[10px] text-text-dim">/ 8h goal</div>
             </div>
           </div>
 
@@ -561,7 +561,7 @@ export default function DashboardClient() {
             </div>
             <input type="time" value={cafTime} onChange={e => setCafTime(e.target.value)}
               className="bg-bg-elev border border-border rounded-lg px-2 py-1.5 text-[11px] font-semibold outline-none focus:border-accent text-text w-24"/>
-            <button onClick={addCaffeine} className="bg-accent text-bg px-3 py-1.5 rounded-lg text-[11px] font-bold">+ Pridať</button>
+            <button onClick={addCaffeine} className="bg-accent text-bg px-3 py-1.5 rounded-lg text-[11px] font-bold">+ Add</button>
             {caffeineEntries.length > 0 && (
               <div className="flex gap-1 flex-wrap">
                 {caffeineEntries.map(e => (
@@ -578,12 +578,12 @@ export default function DashboardClient() {
 
         {/* ── BUSINESS KPI ── */}
         <div className="mb-4">
-          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Biznis dnes</div>
+          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Business today</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
               { label: 'MRR', value: stripeData ? fmtMoney(stripeData.mrr) : '...', color: '#ff7849' },
-              { label: 'Tržby 7d', value: stripeData ? fmtMoney(stripeData.revenue7d) : '...', color: '#c8ff00' },
-              { label: 'Klienti', value: stripeData ? `${stripeData.activeCustomers}` : '...', color: '#6db6ff' },
+              { label: 'Revenue 7d', value: stripeData ? fmtMoney(stripeData.revenue7d) : '...', color: '#c8ff00' },
+              { label: 'Clients', value: stripeData ? `${stripeData.activeCustomers}` : '...', color: '#6db6ff' },
               { label: 'Pipeline', value: fmtMoney(ghlData?.totalPipelineValue || pipeline.reduce((s, p) => s + p.value, 0)), color: '#a78bfa' },
             ].map(k => (
               <div key={k.label} className="bg-bg-card border border-border rounded-xl p-3">
@@ -623,11 +623,11 @@ export default function DashboardClient() {
 
           {/* Daily checks + Tasks */}
           <div className="bg-bg-card border border-border rounded-2xl p-4 sm:col-span-2 lg:col-span-1">
-            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Denné</div>
-            {/* Meditácia + Skincare */}
+            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Daily</div>
+            {/* Meditation + Skincare */}
             <div className="space-y-2 mb-4">
               {[
-                { key: 'meditation_done', label: 'Meditácia', sub: '20 min', color: '#2dd4bf', onToggle: (val: boolean) => toggleActivity('meditation_done', val) },
+                { key: 'meditation_done', label: 'Meditation', sub: '20 min', color: '#2dd4bf', onToggle: (val: boolean) => toggleActivity('meditation_done', val) },
                 { key: 'skincare_am', label: 'Skincare AM', sub: 'Ráno', color: '#a78bfa', onToggle: (val: boolean) => toggleSkincare(val) },
               ].map(item => {
                 const done = !!dailyLog[item.key];
@@ -654,7 +654,7 @@ export default function DashboardClient() {
         {/* ── DATES ── */}
         <div className="bg-bg-card border border-border rounded-2xl p-4 mb-4">
           <div className="flex justify-between items-center mb-3">
-            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Dates · týždeň</div>
+            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Dates · week</div>
             <div className="text-sm font-bold text-violet">{(datesMinutes / 60).toFixed(1)}h</div>
           </div>
           <div className="h-1 bg-bg-elev rounded-full overflow-hidden mb-3">
@@ -673,9 +673,9 @@ export default function DashboardClient() {
         {/* ── AI SECTION ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
           {[
-            { icon: 'M', title: 'Mentor', desc: 'Pozná tvoj celý kontext', href: '/mentor', color: '#ff7849' },
-            { icon: 'S', title: 'Sales coach', desc: 'Analyzuj call transcript', href: '/sales', color: '#c8ff00' },
-            { icon: 'R', title: 'Roleplay', desc: 'Realtime prospekt bot', href: '/sales', color: '#6db6ff' },
+            { icon: 'M', title: 'Mentor', desc: 'Knows your full context', href: '/mentor', color: '#ff7849' },
+            { icon: 'S', title: 'Sales coach', desc: 'Analyze call transcript', href: '/sales', color: '#c8ff00' },
+            { icon: 'R', title: 'Roleplay', desc: 'Realtime prospect bot', href: '/sales', color: '#6db6ff' },
           ].map(c => (
             <Link key={c.title} href={c.href}
               className="bg-bg-card border border-border rounded-xl p-3.5 hover:border-accent transition-all group flex items-center gap-3">
@@ -692,8 +692,8 @@ export default function DashboardClient() {
         {/* ── SUBSCRIPTIONS ── */}
         <div className="bg-bg-card border border-border rounded-2xl p-4">
           <div className="flex justify-between items-center mb-3">
-            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Predplatné</div>
-            <div className="text-sm font-bold text-accent">$284 / mes</div>
+            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Subscriptions</div>
+            <div className="text-sm font-bold text-accent">$284 / mo</div>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {[

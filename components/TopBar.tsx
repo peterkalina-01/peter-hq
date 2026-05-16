@@ -6,11 +6,11 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const navItems = [
-  { href: '/today', label: 'Dnes' },
+  { href: '/today', label: 'Today' },
   { href: '/', label: 'Dashboard' },
-  { href: '/personal', label: 'Osobné' },
-  { href: '/business', label: 'Biznis' },
-  { href: '/finance', label: 'Financie' },
+  { href: '/personal', label: 'Personal' },
+  { href: '/business', label: 'Business' },
+  { href: '/finance', label: 'Finance' },
   { href: '/report', label: 'Report' },
   { href: '/mentor', label: 'Mentor' },
   { href: '/sales', label: 'Sales' },
@@ -132,7 +132,7 @@ export default function TopBar() {
           <div className="text-[11px] text-text-dim font-medium hidden sm:block">{time}</div>
           <button
             onClick={() => fileInputRef.current?.click()}
-            title="Klikni pre nahranie fotky"
+            title="Click to upload photo"
             className="w-8 h-8 rounded-full overflow-hidden border-2 border-transparent hover:border-accent transition-all flex items-center justify-center font-bold text-[12px] text-bg"
             style={avatarSrc
               ? { backgroundImage: `url(${avatarSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' }
@@ -151,7 +151,7 @@ export default function TopBar() {
         <MetricPill value={`☕ ${metrics.caffeine}mg`} color={metrics.caffeine > 200 ? '#ff5d7a' : metrics.caffeine > 50 ? '#ff7849' : '#6db6ff'} />
         <MetricPill value={`💼 ${metrics.workHours.toFixed(1)}h`} color="#c8ff00" />
         <MetricPill value={metrics.workoutDone ? `✓ ${metrics.workoutType || 'Workout'}` : '○ Workout'} color={metrics.workoutDone ? '#ff7849' : '#ff7849'} />
-        <MetricPill value={metrics.meditationDone ? '✓ Meditácia' : '○ Meditácia'} color={metrics.meditationDone ? '#2dd4bf' : '#2dd4bf'} />
+        <MetricPill value={metrics.meditationDone ? '✓ Meditation' : '○ Meditation'} color={metrics.meditationDone ? '#2dd4bf' : '#2dd4bf'} />
         {metrics.mrr !== null && <MetricPill value={`MRR $${metrics.mrr.toLocaleString()}`} color="#c8ff00" />}
       </div>
     </div>

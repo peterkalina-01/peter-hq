@@ -5,17 +5,13 @@ import MobileNav from '@/components/MobileNav';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, getDailyLog, updateDailyLog } from '@/lib/supabase';
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
 type Log = Record<string, unknown>;
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6">
       <div className="text-[10px] font-bold text-text-dim uppercase tracking-[0.15em] mb-3 px-1">{title}</div>
-      <div className="bg-bg-card border border-border rounded-2xl overflow-hidden">
-        {children}
-      </div>
+      <div className="bg-bg-card border border-border rounded-2xl overflow-hidden">{children}</div>
     </div>
   );
 }
@@ -28,19 +24,16 @@ function Row({ children, last = false }: { children: React.ReactNode; last?: boo
   );
 }
 
-// Simple check button
 function CheckButton({ done, onToggle }: { done: boolean; onToggle: () => void }) {
   return (
     <button onClick={onToggle}
-      className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-        done ? 'bg-accent border-accent' : 'border-border-strong hover:border-accent'
-      }`}>
+      className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center flex-shrink-0 transition-all ${done ? 'bg-accent border-accent' : 'border-border-strong hover:border-accent'}`}>
       {done && <span className="text-bg text-[11px] font-extrabold">✓</span>}
     </button>
   );
 }
 
-// ─── CAFFEINE QUICK ──────────────────────────────────────────────────────────
+// ─── CAFFEINE ────────────────────────────────────────────────────────────────
 const DRINKS = [
   { name: 'Espresso', mg: 63, short: 'ESP' },
   { name: 'Cappuccino', mg: 80, short: 'CAP' },
@@ -76,9 +69,7 @@ function CaffeineRow({ last }: { last?: boolean }) {
     const { data } = await supabase.from('caffeine_log')
       .insert({ date, drink: selectedDrink.name, mg: selectedDrink.mg, time_logged: time })
       .select().single();
-    if (data) {
-      setEntries(prev => [...prev, data].sort((a, b) => a.time_logged.localeCompare(b.time_logged)));
-    }
+    if (data) setEntries(prev => [...prev, data].sort((a, b) => a.time_logged.localeCompare(b.time_logged)));
     setAdding(false);
   };
 
@@ -94,9 +85,9 @@ function CaffeineRow({ last }: { last?: boolean }) {
       <Row last={!adding && entries.length === 0 && last}>
         <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 text-base">☕</div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold">Kofeín</div>
+          <div className="text-sm font-semibold">Caffeine</div>
           <div className="text-xs font-bold mt-0.5" style={{ color: statusColor }}>
-            {Math.round(totalMg)}mg aktuálne
+            {Math.round(totalMg)}mg active
             {entries.length > 0 && (
               <span className="text-text-dim font-normal ml-2">
                 · {entries.map(e => `${e.drink.slice(0,3)} ${e.time_logged.slice(0,5)}`).join(', ')}
@@ -106,7 +97,7 @@ function CaffeineRow({ last }: { last?: boolean }) {
         </div>
         <button onClick={() => setAdding(!adding)}
           className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${adding ? 'bg-accent text-bg border-accent' : 'bg-bg-elev border-border text-text-dim hover:border-accent hover:text-accent'}`}>
-          {adding ? '✕' : '+ Pridať'}
+          {adding ? '✕' : '+ Add'}
         </button>
       </Row>
 
@@ -123,7 +114,7 @@ function CaffeineRow({ last }: { last?: boolean }) {
           <div className="flex gap-2">
             <input type="time" value={time} onChange={e => setTime(e.target.value)}
               className="flex-1 bg-bg-elev border border-border rounded-xl px-3 py-2 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
-            <button onClick={add} className="bg-accent text-bg px-5 py-2 rounded-xl text-sm font-bold">+ Pridať</button>
+            <button onClick={add} className="bg-accent text-bg px-5 py-2 rounded-xl text-sm font-bold">+ Add</button>
           </div>
         </div>
       )}
@@ -144,30 +135,24 @@ function CaffeineRow({ last }: { last?: boolean }) {
   );
 }
 
-// ─── WORKOUT QUICK ────────────────────────────────────────────────────────────
+// ─── WORKOUT ─────────────────────────────────────────────────────────────────
 const WORKOUT_OPTIONS = [
   { id: 'push', label: 'Push', color: '#ff7849' },
   { id: 'pull', label: 'Pull', color: '#6db6ff' },
   { id: 'legs', label: 'Legs', color: '#c8ff00' },
-  { id: 'run', label: 'Beh', color: '#4ade80' },
+  { id: 'run', label: 'Run', color: '#4ade80' },
 ];
 
 function WorkoutRow({ log, update, last }: { log: Log; update: (u: Log) => void; last?: boolean }) {
   const [selecting, setSelecting] = useState(false);
-
   const done = !!log.workout_done;
   const type = String(log.workout_type || '');
+  const wColor = WORKOUT_OPTIONS.find(w => w.label === type)?.color || '#ff7849';
 
   const select = async (w: typeof WORKOUT_OPTIONS[0]) => {
     await update({ workout_done: true, workout_type: w.label });
     setSelecting(false);
   };
-
-  const reset = async () => {
-    await update({ workout_done: false, workout_type: '' });
-  };
-
-  const wColor = WORKOUT_OPTIONS.find(w => w.label === type)?.color || '#ff7849';
 
   return (
     <>
@@ -181,11 +166,11 @@ function WorkoutRow({ log, update, last }: { log: Log; update: (u: Log) => void;
           {done && <div className="text-xs font-bold mt-0.5" style={{ color: wColor }}>{type}</div>}
         </div>
         {done ? (
-          <button onClick={reset} className="text-[10px] text-text-dim hover:text-rose transition-colors">Reset</button>
+          <button onClick={() => update({ workout_done: false, workout_type: '' })} className="text-[10px] text-text-dim hover:text-rose transition-colors">Reset</button>
         ) : (
           <button onClick={() => setSelecting(!selecting)}
             className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${selecting ? 'bg-accent text-bg border-accent' : 'bg-bg-elev border-border text-text-dim hover:border-accent hover:text-accent'}`}>
-            {selecting ? '✕' : '+ Zaznamenať'}
+            {selecting ? '✕' : '+ Log'}
           </button>
         )}
       </Row>
@@ -206,17 +191,11 @@ function WorkoutRow({ log, update, last }: { log: Log; update: (u: Log) => void;
   );
 }
 
-// ─── WORK TIME QUICK ─────────────────────────────────────────────────────────
+// ─── WORK TIME ────────────────────────────────────────────────────────────────
 function WorkTimeRow({ log, update, last }: { log: Log; update: (u: Log) => void; last?: boolean }) {
   const [adding, setAdding] = useState(false);
   const [hours, setHours] = useState('');
-  const [cat, setCat] = useState('Deep work');
-
-  const deep = (log.work_deep_hours as number) || 0;
-  const calls = (log.work_calls_hours as number) || 0;
-  const admin = (log.work_admin_hours as number) || 0;
-  const content = (log.work_content_hours as number) || 0;
-  const total = deep + calls + admin + content;
+  const [cat, setCat] = useState('Deep');
 
   const cats = [
     { label: 'Deep', key: 'work_deep_hours', color: '#c8ff00' },
@@ -225,13 +204,14 @@ function WorkTimeRow({ log, update, last }: { log: Log; update: (u: Log) => void
     { label: 'Content', key: 'work_content_hours', color: '#a78bfa' },
   ];
 
+  const total = cats.reduce((s, c) => s + ((log[c.key] as number) || 0), 0);
+
   const add = async () => {
     if (!hours) return;
     const h = parseFloat(hours);
     if (isNaN(h)) return;
-    const key = cats.find(c => c.label === cat.split(' ')[0])?.key || 'work_deep_hours';
-    const current = (log[key] as number) || 0;
-    await update({ [key]: +(current + h).toFixed(1) });
+    const key = cats.find(c => c.label === cat)?.key || 'work_deep_hours';
+    await update({ [key]: +((((log[key] as number) || 0) + h).toFixed(1)) });
     setHours('');
     setAdding(false);
   };
@@ -248,12 +228,12 @@ function WorkTimeRow({ log, update, last }: { log: Log; update: (u: Log) => void
               if (val === 0) return null;
               return <span key={c.key} className="text-[10px] font-bold" style={{ color: c.color }}>{c.label} {val}h</span>;
             })}
-            {total === 0 && <span className="text-[10px] text-text-dim">0h dnes</span>}
+            {total === 0 && <span className="text-[10px] text-text-dim">0h today</span>}
           </div>
         </div>
         <button onClick={() => setAdding(!adding)}
           className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${adding ? 'bg-accent text-bg border-accent' : 'bg-bg-elev border-border text-text-dim hover:border-accent hover:text-accent'}`}>
-          {adding ? '✕' : `+ ${total > 0 ? total.toFixed(1)+'h' : 'Pridať'}`}
+          {adding ? '✕' : `+ ${total > 0 ? total.toFixed(1)+'h' : 'Add'}`}
         </button>
       </Row>
 
@@ -262,7 +242,7 @@ function WorkTimeRow({ log, update, last }: { log: Log; update: (u: Log) => void
           <div className="grid grid-cols-4 gap-2 mb-3">
             {cats.map(c => (
               <button key={c.key} onClick={() => setCat(c.label)}
-                className={`py-2 rounded-xl text-xs font-bold border transition-all ${cat === c.label ? 'text-bg border-transparent' : 'bg-bg-elev border-border text-text-dim hover:border-border-strong'}`}
+                className={`py-2 rounded-xl text-xs font-bold border transition-all ${cat === c.label ? 'text-bg border-transparent' : 'bg-bg-elev border-border text-text-dim'}`}
                 style={cat === c.label ? { background: c.color, borderColor: c.color } : {}}>
                 {c.label}
               </button>
@@ -273,7 +253,7 @@ function WorkTimeRow({ log, update, last }: { log: Log; update: (u: Log) => void
               onChange={e => setHours(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && add()}
               className="flex-1 bg-bg-elev border border-border rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-accent text-text font-[inherit]"/>
-            <button onClick={add} className="bg-accent text-bg px-5 py-2.5 rounded-xl text-sm font-bold">+ Pridať</button>
+            <button onClick={add} className="bg-accent text-bg px-5 py-2.5 rounded-xl text-sm font-bold">+ Add</button>
           </div>
         </div>
       )}
@@ -281,7 +261,7 @@ function WorkTimeRow({ log, update, last }: { log: Log; update: (u: Log) => void
   );
 }
 
-// ─── SIMPLE COUNTER ROW ───────────────────────────────────────────────────────
+// ─── COUNTER ROW ─────────────────────────────────────────────────────────────
 function fmtMin(mins: number): string {
   const m = Math.round(mins);
   if (m === 0) return '0min';
@@ -296,26 +276,17 @@ function CounterRow({ icon, label, logKey, unit, step, max, log, update, last, c
   log: Log; update: (u: Log) => void; last?: boolean; color?: string; screenMode?: boolean;
 }) {
   const raw = (log[logKey] as number) || 0;
-  // screenMode: raw stored as hours, display as minutes
   const valMins = screenMode ? Math.round(raw * 60) : raw;
   const pct = Math.min((valMins / max) * 100, 100);
   const displayVal = screenMode ? fmtMin(valMins) : (unit === 'min' && raw >= 60 ? fmtMin(raw) : `${raw}${unit}`);
 
   const increment = async () => {
-    if (screenMode) {
-      await update({ [logKey]: +((valMins + step) / 60).toFixed(4) });
-    } else {
-      await update({ [logKey]: +(raw + step).toFixed(1) });
-    }
+    if (screenMode) await update({ [logKey]: +((valMins + step) / 60).toFixed(4) });
+    else await update({ [logKey]: +(raw + step).toFixed(1) });
   };
   const decrement = async () => {
-    if (screenMode) {
-      const newMins = Math.max(0, valMins - step);
-      await update({ [logKey]: +(newMins / 60).toFixed(4) });
-    } else {
-      if (raw <= 0) return;
-      await update({ [logKey]: Math.max(0, +(raw - step).toFixed(1)) });
-    }
+    if (screenMode) await update({ [logKey]: +(Math.max(0, valMins - step) / 60).toFixed(4) });
+    else if (raw > 0) await update({ [logKey]: Math.max(0, +(raw - step).toFixed(1)) });
   };
 
   return (
@@ -338,7 +309,6 @@ function CounterRow({ icon, label, logKey, unit, step, max, log, update, last, c
   );
 }
 
-// ─── CHECK ROW ────────────────────────────────────────────────────────────────
 function CheckRow({ icon, label, logKey, sub, log, update, last }: {
   icon: string; label: string; logKey: string; sub?: string;
   log: Log; update: (u: Log) => void; last?: boolean;
@@ -356,7 +326,6 @@ function CheckRow({ icon, label, logKey, sub, log, update, last }: {
   );
 }
 
-// ─── PROGRESS RING (small) ────────────────────────────────────────────────────
 function MiniRing({ pct, color, size = 28 }: { pct: number; color: string; size?: number }) {
   const stroke = 3;
   const r = (size - stroke) / 2;
@@ -371,7 +340,7 @@ function MiniRing({ pct, color, size = 28 }: { pct: number; color: string; size?
   );
 }
 
-// ─── PAGE ─────────────────────────────────────────────────────────────────────
+// ─── PAGE ────────────────────────────────────────────────────────────────────
 export default function TodayPage() {
   const [log, setLog] = useState<Log>({});
   const [loading, setLoading] = useState(true);
@@ -393,19 +362,17 @@ export default function TodayPage() {
   const visionTexts = ['$40 into ads', '5× Remind myself my Vision', 'Study mindset 45min'];
   const visionDone = visionKeys.filter(k => log[k]).length;
   const visionPct = (visionDone / 3) * 100;
+  const workTotal = ['work_deep_hours','work_calls_hours','work_admin_hours','work_content_hours']
+    .reduce((s, k) => s + ((log[k] as number) || 0), 0);
 
-  const workTotal = ((log.work_deep_hours as number) || 0) + ((log.work_calls_hours as number) || 0) + ((log.work_admin_hours as number) || 0) + ((log.work_content_hours as number) || 0);
-
-  const today = new Date().toLocaleDateString('sk-SK', { weekday: 'long', day: 'numeric', month: 'long' });
+  const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   if (loading) return (
-    <>
-      <TopBar />
+    <><TopBar />
       <main className="flex items-center justify-center h-[60vh]">
-        <div className="text-text-dim text-sm animate-pulse">Načítavam...</div>
+        <div className="text-text-dim text-sm animate-pulse">Loading...</div>
       </main>
-      <MobileNav />
-    </>
+    <MobileNav /></>
   );
 
   return (
@@ -413,57 +380,50 @@ export default function TodayPage() {
       <TopBar />
       <main className="px-3 sm:px-4 md:px-6 py-5 max-w-2xl mx-auto pb-28 lg:pb-8">
 
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <div className="text-[11px] font-bold text-accent uppercase tracking-wider mb-1 capitalize">{today}</div>
-            <h1 className="text-3xl font-bold tracking-[-0.03em]">Dnes</h1>
+            <div className="text-[11px] font-bold text-accent uppercase tracking-wider mb-1">{todayStr}</div>
+            <h1 className="text-3xl font-bold tracking-[-0.03em]">Today</h1>
           </div>
-          {/* Overall progress ring */}
           <div className="relative">
             <MiniRing pct={visionPct} color="#ff7849" size={52}/>
             <div className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-accent">{visionDone}/3</div>
           </div>
         </div>
 
-        {/* ── VÍZIA ── */}
-        <Section title="Vízia · denné kroky">
+        <Section title="Vision · daily steps">
           {visionKeys.map((key, i) => (
             <CheckRow key={key} icon="" label={visionTexts[i]} logKey={key} log={log} update={update} last={i === 2}/>
           ))}
         </Section>
 
-        {/* ── TELO ── */}
-        <Section title="Telo">
+        <Section title="Body">
           <CheckRow icon="🧴" label="Skincare AM" logKey="skincare_am" sub="Moisturizer · Vit C · Hydrating" log={log} update={update}/>
-          <CheckRow icon="🧘" label="Meditácia" logKey="meditation_done" sub="Cieľ: 20 min" log={log} update={update}/>
+          <CheckRow icon="🧘" label="Meditation" logKey="meditation_done" sub="Goal: 20 min" log={log} update={update}/>
           <WorkoutRow log={log} update={update}/>
           <CaffeineRow last/>
         </Section>
 
-        {/* ── PRÁCA ── */}
-        <Section title="Práca">
+        <Section title="Work">
           <WorkTimeRow log={log} update={update}/>
-          <CheckRow icon="🧹" label="Clean up pipeline" logKey="pipeline_cleaned" sub="GHL · Aktualizuj všetky deals" log={log} update={update} last/>
+          <CheckRow icon="🧹" label="Clean up pipeline" logKey="pipeline_cleaned" sub="GHL · Update all deals" log={log} update={update} last/>
         </Section>
 
-        {/* ── VEČER ── */}
-        <Section title="Večer">
+        <Section title="Evening">
           <CounterRow icon="💜" label="Dates" logKey="dates_minutes" unit="min" step={30} max={300} log={log} update={update} color="#a78bfa"/>
-          <CounterRow icon="🇬🇧" label="Angličtina" logKey="english_minutes" unit="min" step={15} max={120} log={log} update={update} color="#4ade80"/>
+          <CounterRow icon="🇬🇧" label="English" logKey="english_minutes" unit="min" step={15} max={120} log={log} update={update} color="#4ade80"/>
           <CounterRow icon="💻" label="Screen · PC" logKey="screen_pc_hours" unit="min" step={15} max={600} log={log} update={update} color="#6db6ff" screenMode/>
           <CounterRow icon="📱" label="Screen · Phone" logKey="screen_phone_hours" unit="min" step={15} max={240} log={log} update={update} color="#ff5d7a" last screenMode/>
         </Section>
 
-        {/* ── ZHRNUTIE ── */}
         <div className="bg-bg-card border border-border rounded-2xl p-5">
-          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-4">Dnešné zhrnutie</div>
+          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-4">Daily summary</div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Vízia', val: `${visionDone}/3`, pct: visionPct, color: '#ff7849' },
+              { label: 'Vision', val: `${visionDone}/3`, pct: visionPct, color: '#ff7849' },
               { label: 'Work', val: `${workTotal.toFixed(1)}h`, pct: (workTotal / 8) * 100, color: '#c8ff00' },
-              { label: 'Dates', val: `${((log.dates_minutes as number) || 0)}min`, pct: ((log.dates_minutes as number) || 0) / 3, color: '#a78bfa' },
-              { label: 'Angličtina', val: `${(log.english_minutes as number) || 0}min`, pct: ((log.english_minutes as number) || 0) / 1.2, color: '#4ade80' },
+              { label: 'Dates', val: fmtMin((log.dates_minutes as number) || 0), pct: ((log.dates_minutes as number) || 0) / 3, color: '#a78bfa' },
+              { label: 'English', val: fmtMin((log.english_minutes as number) || 0), pct: ((log.english_minutes as number) || 0) / 1.2, color: '#4ade80' },
             ].map(s => (
               <div key={s.label} className="bg-bg-elev rounded-xl p-3">
                 <div className="flex items-center gap-2 mb-2">
