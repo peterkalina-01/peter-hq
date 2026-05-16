@@ -4,6 +4,8 @@ import TopBar from '@/components/TopBar';
 import MobileNav from '@/components/MobileNav';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getDailyCalls, updateDailyCalls, getCallsHistory, setOverride, clearOverride } from '@/lib/supabase';
+import { fmtMoney } from '@/lib/format';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 type GhlDeal = {
@@ -79,18 +81,26 @@ function Editable({ value, onSave, className = '', prefix = '', suffix = '', ove
 function useOv(key: string, real: number) {
   const [v, setV] = useState(real);
   const [ov, setOv] = useState(false);
+
   useEffect(() => {
-    try {
-      const s = localStorage.getItem(`biz_${key}`);
-      if (s !== null) { setV(JSON.parse(s)); setOv(true); } else setV(real);
-    } catch {}
-  }, [key, real]);
-  const save = (str: string) => {
+    supabase.from('overrides').select('value').eq('key', `biz_${key}`).single()
+      .then(({ data }) => {
+        if (data?.value) { setV(JSON.parse(data.value)); setOv(true); }
+        else setV(real);
+      });
+  }, [key]); // eslint-disable-line
+
+  const save = async (str: string) => {
     const n = parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
     setV(n); setOv(true);
-    try { localStorage.setItem(`biz_${key}`, JSON.stringify(n)); } catch {};
+    await setOverride(`biz_${key}`, JSON.stringify(n));
   };
-  const clear = () => { setV(real); setOv(false); try { localStorage.removeItem(`biz_${key}`); } catch {} };
+
+  const clear = async () => {
+    setV(real); setOv(false);
+    await clearOverride(`biz_${key}`);
+  };
+
   return { v, ov, save, clear };
 }
 
@@ -153,8 +163,8 @@ function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boole
         </div>
       </div>
 
-      {/* Stages — sorted by position */}
-      {ghl.stages.map((stage, idx) => {
+      {/* Stages — sorted by position, skip DQ */}
+      {ghl.stages.filter(s => !s.name.toLowerCase().includes('dq')).map((stage, idx) => {
         const stageData = ghl.byStage[stage.id];
         if (!stageData) return null;
 
@@ -202,31 +212,38 @@ function PipelineSection({ ghl, loading }: { ghl: GhlData | null; loading: boole
 
 // ─── CALLS TRACKER ───────────────────────────────────────────────────────────
 const CALL_METRICS = [
-  { key: 'dials', label: 'Dials', color: '#888894', desc: 'Celkový počet vytočení' },
-  { key: 'calls', label: 'Calls', color: '#6db6ff', desc: 'Hovor nadviazaný' },
-  { key: 'setts', label: 'Setts', color: '#ff7849', desc: 'Dohodnutý ďalší call' },
-  { key: 'closing', label: 'Closing Calls', color: '#a78bfa', desc: 'Closing call prebehol' },
-  { key: 'closed', label: 'Closed', color: '#4ade80', desc: 'Deal podpísaný' },
+  { key: 'dials', label: 'Dials', color: '#888894' },
+  { key: 'calls', label: 'Calls', color: '#6db6ff' },
+  { key: 'setts', label: 'Setts', color: '#ff7849' },
+  { key: 'closing', label: 'Closing', color: '#a78bfa' },
+  { key: 'closed', label: 'Closed', color: '#4ade80' },
 ];
 
 function CallsSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean }) {
-  const today = new Date().toISOString().split('T')[0];
-  const storageKey = `calls_${today}`;
-
-  const [metrics, setMetrics] = useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      return saved ? JSON.parse(saved) : { dials: 0, calls: 0, setts: 0, closing: 0, closed: 0 };
-    } catch { return { dials: 0, calls: 0, setts: 0, closing: 0, closed: 0 }; }
-  });
+  const [metrics, setMetrics] = useState({ dials: 0, calls: 0, setts: 0, closing: 0, closed: 0 });
+  const [history, setHistory] = useState<({ date: string; dials: number; calls: number; setts: number; closing: number; closed: number })[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const update = (key: string, delta: number) => {
-    setMetrics(prev => {
-      const next = { ...prev, [key]: Math.max(0, (prev[key] || 0) + delta) };
-      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
-      return next;
+  useEffect(() => {
+    // Load today + history
+    Promise.all([
+      getDailyCalls(),
+      getCallsHistory(14),
+    ]).then(([todayData, hist]) => {
+      setMetrics(todayData);
+      setHistory(hist);
     });
+  }, []);
+
+  const update = async (key: string, delta: number) => {
+    const newMetrics = { ...metrics, [key]: Math.max(0, (metrics[key as keyof typeof metrics] || 0) + delta) };
+    setMetrics(newMetrics);
+    setSaving(true);
+    await updateDailyCalls(newMetrics);
+    setSaving(false);
+    // Refresh history
+    getCallsHistory(14).then(setHistory);
   };
 
   // Percentages
@@ -235,89 +252,135 @@ function CallsSection({ ghl, loading }: { ghl: GhlData | null; loading: boolean 
   const closeRate = metrics.closing > 0 ? ((metrics.closed / metrics.closing) * 100).toFixed(0) : '—';
   const dialToClose = metrics.dials > 0 && metrics.closed > 0 ? (metrics.dials / metrics.closed).toFixed(1) : '—';
 
+  // History totals
+  const histTotals = history.reduce((acc, d) => ({
+    dials: acc.dials + d.dials,
+    calls: acc.calls + d.calls,
+    setts: acc.setts + d.setts,
+    closing: acc.closing + d.closing,
+    closed: acc.closed + d.closed,
+  }), { dials: 0, calls: 0, setts: 0, closing: 0, closed: 0 });
+
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-bold">Cally · dnes</h3>
-        <div className="flex items-center gap-2">
-          {ghl && <span className="text-[10px] text-text-dim">GHL sync</span>}
-          <button onClick={() => setExpanded(!expanded)}
-            className="text-xs font-bold px-2.5 py-1 rounded-lg bg-bg-elev border border-border text-text-dim hover:border-accent hover:text-accent transition-all">
-            {expanded ? '← Zavrieť' : 'Štatistiky →'}
-          </button>
+        <div>
+          <h3 className="text-lg font-bold">Cally · dnes</h3>
+          {saving && <span className="text-[10px] text-text-dim">Ukladám...</span>}
         </div>
+        <button onClick={() => setExpanded(!expanded)}
+          className="text-xs font-bold px-2.5 py-1 rounded-lg bg-bg-elev border border-border text-text-dim hover:border-accent hover:text-accent transition-all">
+          {expanded ? '← Zavrieť' : 'Štatistiky →'}
+        </button>
       </div>
 
-      {/* Main metric counters */}
+      {/* Main counters */}
       <div className="grid grid-cols-5 gap-2 mb-4">
         {CALL_METRICS.map(m => (
           <div key={m.key} className="text-center">
             <div className="text-[9px] font-bold uppercase tracking-wider mb-2 leading-tight" style={{ color: m.color }}>
-              {m.label.split(' ')[0]}<br/>{m.label.split(' ')[1] || ''}
+              {m.label}
             </div>
-            <div className="text-xl font-bold mb-2" style={{ color: m.color }}>{metrics[m.key] || 0}</div>
+            <div className="text-2xl font-bold mb-2" style={{ color: m.color }}>
+              {metrics[m.key as keyof typeof metrics] || 0}
+            </div>
             <div className="flex flex-col gap-1">
               <button onClick={() => update(m.key, 1)}
                 className="w-full py-1.5 rounded-lg text-xs font-bold text-bg transition-all hover:opacity-90"
                 style={{ background: m.color }}>+</button>
               <button onClick={() => update(m.key, -1)}
-                className="w-full py-1.5 rounded-lg text-xs font-bold border border-border text-text-dim hover:border-border-strong transition-all bg-bg-elev">−</button>
+                className="w-full py-1.5 rounded-lg text-xs font-bold border border-border text-text-dim bg-bg-elev">−</button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Expanded stats */}
+      {/* Expanded */}
       {expanded && (
-        <div className="border-t border-border pt-4">
-          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Konverzné percentá</div>
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            {[
-              { label: 'Pickup rate', value: `${pickupRate}%`, sub: 'Calls / Dials', color: '#6db6ff' },
-              { label: 'Sett rate', value: `${settRate}%`, sub: 'Setts / Calls', color: '#ff7849' },
-              { label: 'Close rate', value: `${closeRate}%`, sub: 'Closed / Closing', color: '#4ade80' },
-              { label: 'Dials to close', value: `${dialToClose}`, sub: 'Dials per deal', color: '#a78bfa' },
-            ].map(s => (
-              <div key={s.label} className="bg-bg-elev rounded-xl p-3">
-                <div className="text-[10px] text-text-dim mb-1">{s.label}</div>
-                <div className="text-xl font-bold mb-0.5" style={{ color: s.color }}>{s.value}</div>
-                <div className="text-[10px] text-text-dim">{s.sub}</div>
-              </div>
-            ))}
+        <div className="border-t border-border pt-4 space-y-5">
+
+          {/* Today percentages */}
+          <div>
+            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Konverzie · dnes</div>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: 'Pickup rate', value: `${pickupRate}%`, sub: 'Calls / Dials', color: '#6db6ff' },
+                { label: 'Sett rate', value: `${settRate}%`, sub: 'Setts / Calls', color: '#ff7849' },
+                { label: 'Close rate', value: `${closeRate}%`, sub: 'Closed / Closing', color: '#4ade80' },
+                { label: 'Dials / deal', value: dialToClose, sub: 'Efektivita', color: '#a78bfa' },
+              ].map(s => (
+                <div key={s.label} className="bg-bg-elev rounded-xl p-3">
+                  <div className="text-[10px] text-text-dim mb-1">{s.label}</div>
+                  <div className="text-xl font-bold" style={{ color: s.color }}>{s.value}</div>
+                  <div className="text-[10px] text-text-dim">{s.sub}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Funnel viz */}
-          <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Funnel</div>
-          <div className="space-y-1.5">
-            {CALL_METRICS.map((m, i) => {
-              const base = metrics.dials || 1;
-              const val = metrics[m.key] || 0;
-              const pct = Math.min((val / base) * 100, 100);
-              return (
-                <div key={m.key}>
-                  <div className="flex justify-between text-[10px] mb-0.5">
-                    <span style={{ color: m.color }}>{m.label}</span>
-                    <span className="text-text-dim font-bold">{val}</span>
+          {/* Funnel */}
+          <div>
+            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Funnel · dnes</div>
+            <div className="space-y-1.5">
+              {CALL_METRICS.map(m => {
+                const val = metrics[m.key as keyof typeof metrics] || 0;
+                const pct = metrics.dials > 0 ? Math.min((val / metrics.dials) * 100, 100) : 0;
+                return (
+                  <div key={m.key}>
+                    <div className="flex justify-between text-[10px] mb-0.5">
+                      <span style={{ color: m.color }}>{m.label}</span>
+                      <span className="text-text-dim font-bold">{val}</span>
+                    </div>
+                    <div className="h-1.5 bg-bg-card rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: m.color }}/>
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-bg-card rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: m.color }}/>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
+
+          {/* 14-day history totals */}
+          {history.length > 1 && (
+            <div>
+              <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Posledných 14 dní · celkom</div>
+              <div className="grid grid-cols-5 gap-2 mb-3">
+                {CALL_METRICS.map(m => (
+                  <div key={m.key} className="text-center bg-bg-elev rounded-xl p-2">
+                    <div className="text-[9px] text-text-dim mb-1">{m.label}</div>
+                    <div className="text-base font-bold" style={{ color: m.color }}>
+                      {histTotals[m.key as keyof typeof histTotals]}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* History rows */}
+              <div className="space-y-0 max-h-48 overflow-y-auto">
+                {[...history].reverse().map((d, i) => (
+                  <div key={i} className="grid grid-cols-[80px_repeat(5,1fr)] gap-2 py-2 border-b border-white/[0.04] last:border-b-0 text-xs items-center">
+                    <span className="text-text-dim">{new Date(d.date).toLocaleDateString('sk-SK', { day: 'numeric', month: 'short' })}</span>
+                    {CALL_METRICS.map(m => (
+                      <span key={m.key} className="text-center font-bold" style={{ color: (d[m.key as keyof typeof d] as number) > 0 ? m.color : '#555566' }}>
+                        {d[m.key as keyof typeof d] as number}
+                      </span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* GHL appointments */}
           {ghl?.appointments?.length ? (
-            <div className="mt-4 pt-4 border-t border-border">
+            <div>
               <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">GHL · posledné eventy</div>
               {ghl.appointments.slice(0, 4).map((a, i) => (
                 <div key={i} className="flex justify-between items-center py-2 border-b border-white/[0.04] last:border-b-0 text-xs">
                   <div>
                     <div className="font-semibold">{a.title}</div>
-                    <div className="text-text-dim">{a.contact} · {a.startTime ? new Date(a.startTime).toLocaleDateString('sk-SK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                    <div className="text-text-dim">{a.contact}</div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded font-bold ${a.status === 'confirmed' ? 'bg-green2/10 text-green2' : a.status === 'cancelled' ? 'bg-rose/10 text-rose' : 'bg-bg-elev text-text-dim'}`}>
+                  <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${a.status === 'confirmed' ? 'bg-green2/10 text-green2' : 'bg-bg-elev text-text-dim'}`}>
                     {a.status || 'pending'}
                   </span>
                 </div>
@@ -371,51 +434,88 @@ function Goals({ stripe, ghl }: { stripe: StripeData | null; ghl: GhlData | null
 }
 
 // ─── DAILY TASKS ─────────────────────────────────────────────────────────────
-function DailyTasks() {
-  const [tasks, setTasks] = useState([
-    { text: 'Outreach · 30 land clearing firiem', tag: 'Growth', done: false },
-    { text: '$40 into ads · skontrolovať kampane', tag: 'Ads', done: false },
-    { text: 'Napísať 3 nové UGC hooky', tag: 'Content', done: false },
-    { text: 'Roleplay session · 2×', tag: 'Sales', done: false },
-  ]);
+type Task = { id: string; text: string; tag: string; done: boolean; source: 'biznis' | 'osobne' };
+
+const TAG_COLORS: Record<string, string> = {
+  Growth: '#c8ff00', Ads: '#ff7849', Pipeline: '#6db6ff',
+  Content: '#a78bfa', Sales: '#2dd4bf', Task: '#888894', Osobné: '#4ade80',
+};
+
+async function loadTasks(date: string): Promise<Task[]> {
+  const { data } = await supabase.from('daily_tasks').select('*').eq('date', date).order('created_at');
+  return (data || []) as Task[];
+}
+
+function DailyTasks({ source }: { source: 'biznis' | 'osobne' }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState('');
+  const [newTag, setNewTag] = useState('Task');
+  const [loading, setLoading] = useState(true);
+  const date = new Date().toISOString().split('T')[0];
 
-  const tagColors: Record<string, string> = {
-    Growth: '#c8ff00', Ads: '#ff7849', Pipeline: '#6db6ff',
-    Content: '#a78bfa', Sales: '#2dd4bf', Task: '#888894',
-  };
+  useEffect(() => {
+    supabase.from('daily_tasks').select('*').eq('date', date).eq('source', source).order('created_at')
+      .then(({ data }) => { setTasks((data || []) as Task[]); setLoading(false); });
+  }, [date, source]);
 
-  const add = () => {
+  const tags = source === 'biznis'
+    ? ['Task', 'Growth', 'Ads', 'Pipeline', 'Content', 'Sales']
+    : ['Task', 'Osobné'];
+
+  const add = async () => {
     if (!newTask.trim()) return;
-    setTasks(prev => [...prev, { text: newTask.trim(), tag: 'Task', done: false }]);
+    const { data } = await supabase.from('daily_tasks')
+      .insert({ date, text: newTask.trim(), tag: newTag, done: false, source })
+      .select().single();
+    if (data) setTasks(prev => [...prev, data as Task]);
     setNewTask('');
   };
 
+  const toggle = async (task: Task) => {
+    await supabase.from('daily_tasks').update({ done: !task.done }).eq('id', task.id);
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, done: !t.done } : t));
+  };
+
+  const remove = async (id: string) => {
+    await supabase.from('daily_tasks').delete().eq('id', id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
   const done = tasks.filter(t => t.done).length;
+
+  if (loading) return <Card><div className="text-xs text-text-dim animate-pulse py-4 text-center">Načítavam...</div></Card>;
 
   return (
     <Card>
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold">Úlohy · dnes</h3>
-        <span className={`text-xs font-bold px-2 py-1 rounded-md ${done === tasks.length ? 'bg-accent/10 text-accent' : 'bg-bg-elev text-text-dim'}`}>
+        <span className={`text-xs font-bold px-2 py-1 rounded-md ${done === tasks.length && tasks.length > 0 ? 'bg-accent/10 text-accent' : 'bg-bg-elev text-text-dim'}`}>
           {done} / {tasks.length}
         </span>
       </div>
       <div className="space-y-0 mb-4">
-        {tasks.map((t, i) => (
-          <button key={i} onClick={() => setTasks(prev => { const c = [...prev]; c[i].done = !c[i].done; return c; })}
-            className="w-full flex items-center gap-3 py-3 border-b border-white/[0.04] last:border-b-0 text-left">
-            <div className={`w-4 h-4 rounded border-[1.5px] flex-shrink-0 relative transition-all ${t.done ? 'bg-accent border-accent' : 'border-border-strong'}`}>
-              {t.done && <span className="absolute inset-0 flex items-center justify-center text-bg text-[10px] font-extrabold">✓</span>}
-            </div>
+        {tasks.length === 0 && <div className="text-xs text-text-dim text-center py-4">Žiadne úlohy — pridaj prvú</div>}
+        {tasks.map(t => (
+          <div key={t.id} className="flex items-center gap-3 py-3 border-b border-white/[0.04] last:border-b-0 group">
+            <button onClick={() => toggle(t)}
+              className={`w-4 h-4 rounded border-[1.5px] flex-shrink-0 relative transition-all ${t.done ? 'bg-accent border-accent' : 'border-border-strong'}`}>
+              {t.done && <span className="absolute inset-0 flex items-center justify-center text-bg text-[9px] font-extrabold">✓</span>}
+            </button>
             <span className={`flex-1 text-sm font-medium ${t.done ? 'line-through text-text-subtle' : ''}`}>{t.text}</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: tagColors[t.tag] || '#888', background: `${tagColors[t.tag] || '#888'}18` }}>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+              style={{ color: TAG_COLORS[t.tag] || '#888', background: `${TAG_COLORS[t.tag] || '#888'}18` }}>
               {t.tag}
             </span>
-          </button>
+            <button onClick={() => remove(t.id)}
+              className="opacity-0 group-hover:opacity-100 text-text-dim hover:text-rose text-xs transition-all flex-shrink-0">✕</button>
+          </div>
         ))}
       </div>
       <div className="flex gap-2">
+        <select value={newTag} onChange={e => setNewTag(e.target.value)}
+          className="bg-bg-elev border border-border rounded-xl px-2 py-2.5 text-xs font-semibold outline-none focus:border-accent text-text font-[inherit]">
+          {tags.map(t => <option key={t}>{t}</option>)}
+        </select>
         <input value={newTask} onChange={e => setNewTask(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && add()}
           placeholder="Nová úloha..."
@@ -490,7 +590,7 @@ export default function BusinessPage() {
         <Goals stripe={stripe} ghl={ghl}/>
 
         <SectionHeader title="Úlohy · dnes"/>
-        <DailyTasks/>
+        <DailyTasks source="biznis"/>
 
         <SectionHeader title="Pipeline · Land Clearing" meta={ghl ? `${ghl.openDeals} open · $${ghl.totalPipelineValue.toLocaleString()}` : 'načítavam...'}/>
         <PipelineSection ghl={ghl} loading={loading}/>

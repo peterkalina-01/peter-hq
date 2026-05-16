@@ -54,6 +54,9 @@ export default function PersonalPage() {
         <SectionHeader title="Denné metriky" meta="Rýchle zadanie" />
         <MiniTrackers log={log} update={update} />
 
+        <SectionHeader title="Úlohy · dnes" meta="Osobné" />
+        <PersonalTasks />
+
         <SectionHeader title="Google Kalendár" meta="Čoskoro" />
         <CalendarPlaceholder />
 
@@ -643,6 +646,74 @@ function BodyChecks({ log, update }: { log: Record<string, unknown>; update: (u:
           </button>
         );
       })}
+    </Card>
+  );
+}
+
+// ─── PERSONAL TASKS ──────────────────────────────────────────────────────────
+function PersonalTasks() {
+  const [tasks, setTasks] = useState<{ id: string; text: string; tag: string; done: boolean }[]>([]);
+  const [newTask, setNewTask] = useState('');
+  const [loading, setLoading] = useState(true);
+  const date = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    supabase.from('daily_tasks').select('*').eq('date', date).eq('source', 'osobne').order('created_at')
+      .then(({ data }) => { setTasks(data || []); setLoading(false); });
+  }, [date]);
+
+  const add = async () => {
+    if (!newTask.trim()) return;
+    const { data } = await supabase.from('daily_tasks')
+      .insert({ date, text: newTask.trim(), tag: 'Osobné', done: false, source: 'osobne' })
+      .select().single();
+    if (data) setTasks(prev => [...prev, data]);
+    setNewTask('');
+  };
+
+  const toggle = async (id: string, done: boolean) => {
+    await supabase.from('daily_tasks').update({ done: !done }).eq('id', id);
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  };
+
+  const remove = async (id: string) => {
+    await supabase.from('daily_tasks').delete().eq('id', id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const doneCount = tasks.filter(t => t.done).length;
+
+  if (loading) return <Card><div className="text-xs text-text-dim animate-pulse py-3 text-center">Načítavam...</div></Card>;
+
+  return (
+    <Card>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-bold">Úlohy · dnes</h3>
+        <span className={`text-xs font-bold px-2 py-1 rounded-md ${doneCount === tasks.length && tasks.length > 0 ? 'bg-accent/10 text-accent' : 'bg-bg-elev text-text-dim'}`}>
+          {doneCount} / {tasks.length}
+        </span>
+      </div>
+      <div className="space-y-0 mb-4">
+        {tasks.length === 0 && <div className="text-xs text-text-dim text-center py-4">Žiadne úlohy — pridaj prvú</div>}
+        {tasks.map(t => (
+          <div key={t.id} className="flex items-center gap-3 py-3 border-b border-white/[0.04] last:border-b-0 group">
+            <button onClick={() => toggle(t.id, t.done)}
+              className={`w-4 h-4 rounded border-[1.5px] flex-shrink-0 relative transition-all ${t.done ? 'bg-accent border-accent' : 'border-border-strong'}`}>
+              {t.done && <span className="absolute inset-0 flex items-center justify-center text-bg text-[9px] font-extrabold">✓</span>}
+            </button>
+            <span className={`flex-1 text-sm font-medium ${t.done ? 'line-through text-text-subtle' : ''}`}>{t.text}</span>
+            <button onClick={() => remove(t.id)}
+              className="opacity-0 group-hover:opacity-100 text-text-dim hover:text-rose text-xs transition-all">✕</button>
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input value={newTask} onChange={e => setNewTask(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && add()}
+          placeholder="Nová osobná úloha..."
+          className="flex-1 bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none focus:border-accent text-text placeholder:text-text-dim font-[inherit]"/>
+        <button onClick={add} className="bg-accent text-bg px-4 py-2.5 rounded-xl text-sm font-bold">+</button>
+      </div>
     </Card>
   );
 }

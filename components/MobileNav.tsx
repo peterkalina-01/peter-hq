@@ -6,10 +6,10 @@ import { usePathname } from 'next/navigation';
 const items = [
   { href: '/today', label: 'Dnes', icon: '◆' },
   { href: '/', label: 'Dashboard', icon: '⊞' },
+  { href: '/personal', label: 'Osobné', icon: '◉' },
   { href: '/business', label: 'Biznis', icon: '▲' },
   { href: '/finance', label: '$', icon: '$' },
   { href: '/report', label: 'Report', icon: '◈' },
-  { href: '/personal', label: 'Osobné', icon: '◉' },
 ];
 
 export default function MobileNav() {

@@ -4,6 +4,7 @@ import TopBar from '@/components/TopBar';
 import MobileNav from '@/components/MobileNav';
 import { useState, useEffect } from 'react';
 import { EditableValue } from '@/components/EditableValue';
+import { supabase, getAllOverrides, setOverride, clearOverride } from '@/lib/supabase';
 
 type StripeData = {
   mrr: number;
@@ -17,26 +18,37 @@ type StripeData = {
 function useOverride<T>(key: string, realVal: T) {
   const [val, setVal] = useState<T>(realVal);
   const [overridden, setOverridden] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const s = localStorage.getItem(`fin_${key}`);
-      if (s !== null) { setVal(JSON.parse(s)); setOverridden(true); }
-      else setVal(realVal);
-    } catch {}
-  }, [key, realVal]);
+    supabase.from('overrides').select('value').eq('key', `fin_${key}`).single()
+      .then(({ data }) => {
+        if (data?.value) {
+          setVal(JSON.parse(data.value) as T);
+          setOverridden(true);
+        } else {
+          setVal(realVal);
+        }
+        setLoaded(true);
+      });
+  }, [key]); // eslint-disable-line
 
-  const save = (v: string) => {
+  // Sync realVal if not overridden
+  useEffect(() => {
+    if (loaded && !overridden) setVal(realVal);
+  }, [realVal, loaded, overridden]);
+
+  const save = async (v: string) => {
     const parsed = parseFloat(v.replace(/[^0-9.]/g, '')) || 0;
     setVal(parsed as unknown as T);
     setOverridden(true);
-    try { localStorage.setItem(`fin_${key}`, JSON.stringify(parsed)); } catch {}
+    await setOverride(`fin_${key}`, JSON.stringify(parsed));
   };
 
-  const clear = () => {
+  const clear = async () => {
     setOverridden(false);
     setVal(realVal);
-    try { localStorage.removeItem(`fin_${key}`); } catch {}
+    await clearOverride(`fin_${key}`);
   };
 
   return { val, overridden, save, clear };
@@ -96,17 +108,17 @@ export default function FinancePage() {
   const [newSub, setNewSub] = useState({ name: '', price: '', renews: '' });
   const [addingNew, setAddingNew] = useState(false);
 
-  // Load subs from localStorage
+  // Load subs from Supabase overrides
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('peter_subs');
-      if (saved) setSubs(JSON.parse(saved));
-    } catch {}
+    supabase.from('overrides').select('value').eq('key', 'subscriptions').single()
+      .then(({ data }) => {
+        if (data?.value) { try { setSubs(JSON.parse(data.value)); } catch {} }
+      });
   }, []);
 
-  const saveSubs = (newSubs: typeof DEFAULT_SUBS) => {
+  const saveSubs = async (newSubs: typeof DEFAULT_SUBS) => {
     setSubs(newSubs);
-    try { localStorage.setItem('peter_subs', JSON.stringify(newSubs)); } catch {}
+    await setOverride('subscriptions', JSON.stringify(newSubs));
   };
 
   const totalSubs = subs.reduce((sum, s) => sum + (parseFloat(s.price.replace(/[^0-9.]/g, '')) || 0), 0);

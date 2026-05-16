@@ -3,7 +3,61 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDailyQuote } from '@/lib/quotes';
 import { supabase, getDailyLog, updateDailyLog } from '@/lib/supabase';
+import { fmtMoney, fmtNum } from '@/lib/format';
 import Link from 'next/link';
+
+// ─── FORMAT ──────────────────────────────────────────────────────────────────
+// fmtMoney and fmtNum imported above
+
+// ─── DASHBOARD TASKS (read-only, synced from biznis+osobne) ──────────────────
+type DashTask = { id: string; text: string; tag: string; done: boolean; source: string };
+
+function DashboardTasks() {
+  const [tasks, setTasks] = useState<DashTask[]>([]);
+  const date = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    supabase.from('daily_tasks').select('*').eq('date', date).order('source').order('created_at')
+      .then(({ data }) => setTasks(data || []));
+  }, [date]);
+
+  const toggle = async (task: DashTask) => {
+    await supabase.from('daily_tasks').update({ done: !task.done }).eq('id', task.id);
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, done: !t.done } : t));
+  };
+
+  const TAG_COLORS: Record<string, string> = {
+    Growth: '#c8ff00', Ads: '#ff7849', Pipeline: '#6db6ff',
+    Content: '#a78bfa', Sales: '#2dd4bf', Task: '#888894', Osobné: '#4ade80',
+  };
+
+  if (tasks.length === 0) return (
+    <div className="text-[10px] text-text-dim text-center py-3">
+      Pridaj úlohy cez Biznis alebo Osobné stránku
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Úlohy</div>
+      <div className="space-y-1">
+        {tasks.map(t => (
+          <button key={t.id} onClick={() => toggle(t)}
+            className="w-full flex items-center gap-2 py-2 text-left border-b border-white/[0.04] last:border-b-0">
+            <div className={`w-3.5 h-3.5 rounded border flex-shrink-0 relative transition-all ${t.done ? 'bg-accent border-accent' : 'border-border-strong'}`}>
+              {t.done && <span className="absolute inset-0 flex items-center justify-center text-bg text-[8px] font-extrabold">✓</span>}
+            </div>
+            <span className={`flex-1 text-xs font-medium truncate ${t.done ? 'line-through text-text-subtle' : ''}`}>{t.text}</span>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+              style={{ color: TAG_COLORS[t.tag] || '#888', background: `${TAG_COLORS[t.tag] || '#888'}18` }}>
+              {t.source === 'osobne' ? 'Os' : t.tag.slice(0,3)}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── RING ────────────────────────────────────────────────────────────────────
 function Ring({ pct, color, size = 72, stroke = 6, children }: {
@@ -486,7 +540,7 @@ export default function DashboardClient() {
             </Ring>
             <div className="min-w-0">
               <div className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-0.5">MRR</div>
-              <div className="text-sm font-bold">{stripeData ? `$${stripeData.mrr.toLocaleString()}` : '...'}</div>
+              <div className="text-sm font-bold">{stripeData ? fmtMoney(stripeData.mrr) : '...'}</div>
               <div className="text-[10px] text-accent font-semibold">/ $30K</div>
             </div>
           </div>
@@ -527,10 +581,10 @@ export default function DashboardClient() {
           <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">Biznis dnes</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { label: 'MRR', value: stripeData ? `$${stripeData.mrr.toLocaleString()}` : '...', color: '#ff7849' },
-              { label: 'Tržby 7d', value: stripeData ? `$${stripeData.revenue7d.toLocaleString()}` : '...', color: '#c8ff00' },
+              { label: 'MRR', value: stripeData ? fmtMoney(stripeData.mrr) : '...', color: '#ff7849' },
+              { label: 'Tržby 7d', value: stripeData ? fmtMoney(stripeData.revenue7d) : '...', color: '#c8ff00' },
               { label: 'Klienti', value: stripeData ? `${stripeData.activeCustomers}` : '...', color: '#6db6ff' },
-              { label: 'Pipeline', value: `$${pipeline.reduce((s, p) => s + p.value, 0).toLocaleString()}`, color: '#a78bfa' },
+              { label: 'Pipeline', value: fmtMoney(ghlData?.totalPipelineValue || pipeline.reduce((s, p) => s + p.value, 0)), color: '#a78bfa' },
             ].map(k => (
               <div key={k.label} className="bg-bg-card border border-border rounded-xl p-3">
                 <div className="text-[10px] text-text-dim font-semibold mb-1">{k.label}</div>
@@ -548,7 +602,7 @@ export default function DashboardClient() {
             <div className="flex justify-between items-center mb-3">
               <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Pipeline</div>
               <span className="text-sm font-bold text-accent">
-                ${(ghlData?.totalPipelineValue || pipeline.reduce((s, p) => s + p.value, 0)).toLocaleString()}
+                {fmtMoney(ghlData?.totalPipelineValue || pipeline.reduce((s, p) => s + p.value, 0))}
               </span>
             </div>
             <div className="space-y-2">
@@ -567,33 +621,33 @@ export default function DashboardClient() {
             </div>
           </div>
 
-          {/* Activities - saved to Supabase */}
-          <div className="bg-bg-card border border-border rounded-2xl p-4">
-            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Aktivity dnes</div>
-            <div className="space-y-1">
-              <ActivityRow label="Meditácia" done={!!dailyLog.meditation_done} meta="Cieľ: 20min" color="#2dd4bf"
-                onToggle={val => toggleActivity('meditation_done', val)}/>
-              <ActivityRow label="Workout" done={!!dailyLog.workout_done} meta="Zaškrtni keď hotovo" color="#ff7849"
-                onToggle={val => toggleActivity('workout_done', val)}/>
-              <ActivityRow label="Beh" done={!!dailyLog.run_done} meta="Garmin" color="#c8ff00"
-                onToggle={val => toggleActivity('run_done', val)}/>
-            </div>
-          </div>
-
-          {/* Skincare */}
+          {/* Daily checks + Tasks */}
           <div className="bg-bg-card border border-border rounded-2xl p-4 sm:col-span-2 lg:col-span-1">
-            <button onClick={() => toggleSkincare(!dailyLog.skincare_am)} className="w-full text-left">
-              <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Skincare AM</div>
-              <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${dailyLog.skincare_am ? 'bg-accent/[0.04] border-accent/30' : 'bg-bg-elev border-border'}`}>
-                <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${dailyLog.skincare_am ? 'bg-accent border-accent text-bg' : 'border-border-strong text-text-dim'}`}>
-                  {dailyLog.skincare_am ? '✓' : '○'}
-                </div>
-                <div>
-                  <div className="text-sm font-bold">{dailyLog.skincare_am ? 'Hotovo' : 'Nespravené'}</div>
-                  <div className="text-[10px] text-text-dim">Moisturizer · Vit C · Hydrating</div>
-                </div>
-              </div>
-            </button>
+            <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-3">Denné</div>
+            {/* Meditácia + Skincare */}
+            <div className="space-y-2 mb-4">
+              {[
+                { key: 'meditation_done', label: 'Meditácia', sub: '20 min', color: '#2dd4bf', onToggle: (val: boolean) => toggleActivity('meditation_done', val) },
+                { key: 'skincare_am', label: 'Skincare AM', sub: 'Ráno', color: '#a78bfa', onToggle: (val: boolean) => toggleSkincare(val) },
+              ].map(item => {
+                const done = !!dailyLog[item.key];
+                return (
+                  <button key={item.key} onClick={() => item.onToggle(!done)}
+                    className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all text-left ${done ? 'bg-bg-elev border-border-strong' : 'bg-bg-elev border-border hover:border-border-strong'}`}>
+                    <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all ${done ? 'text-bg border-transparent' : 'text-text-dim border-border-strong'}`}
+                      style={done ? { background: item.color } : {}}>
+                      {done ? '✓' : '○'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-semibold ${done ? 'line-through text-text-subtle' : ''}`}>{item.label}</div>
+                      <div className="text-[10px] text-text-dim">{item.sub}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Synced tasks */}
+            <DashboardTasks />
           </div>
         </div>
 
