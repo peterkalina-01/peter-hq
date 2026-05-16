@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getDailyQuote } from '@/lib/quotes';
 import { supabase, getDailyLog, updateDailyLog } from '@/lib/supabase';
 import { fmtMoney, fmtNum } from '@/lib/format';
@@ -285,6 +285,36 @@ function ActivityRow({ label, done: initialDone, meta, color, onToggle }: {
 // ─── WEEKLY GOALS SECTION ────────────────────────────────────────────────────
 type GoalItem = { id?: string; goal_index: number; title: string; notes: string; done: boolean };
 
+function NotesTextarea({ value, onChange, readOnly }: {
+  value: string;
+  onChange: (v: string) => void;
+  readOnly: boolean;
+}) {
+  const [local, setLocal] = useState(value);
+  const timer = React.useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => { setLocal(value); }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocal(e.target.value);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => onChange(e.target.value), 800);
+  };
+
+  return (
+    <textarea
+      value={local}
+      onChange={handleChange}
+      readOnly={readOnly}
+      placeholder="How will you achieve this? Add steps, notes, checkpoints..."
+      rows={4}
+      className={`w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none text-text placeholder:text-text-dim font-[inherit] resize-none leading-relaxed transition-all ${
+        !readOnly ? 'focus:border-accent' : 'opacity-60 cursor-default'
+      }`}
+    />
+  );
+}
+
 function WeeklyGoalsSection({ goals, offset, onOffsetChange, onSave, getWeekStart }: {
   goals: GoalItem[];
   offset: number;
@@ -395,15 +425,10 @@ function WeeklyGoalsSection({ goals, offset, onOffsetChange, onSave, getWeekStar
                 <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">
                   Notes & steps {!isCurrentWeek && '· read only'}
                 </div>
-                <textarea
+                <NotesTextarea
                   value={goal.notes}
-                  onChange={e => isCurrentWeek && onSave(i, { notes: e.target.value })}
+                  onChange={v => isCurrentWeek && onSave(i, { notes: v })}
                   readOnly={!isCurrentWeek}
-                  placeholder="How will you achieve this? Add steps, notes, checkpoints..."
-                  rows={4}
-                  className={`w-full bg-bg-elev border border-border rounded-xl px-3 py-2.5 text-sm font-medium outline-none text-text placeholder:text-text-dim font-[inherit] resize-none leading-relaxed transition-all ${
-                    isCurrentWeek ? 'focus:border-accent' : 'opacity-60 cursor-default'
-                  }`}
                 />
               </div>
             )}
@@ -489,10 +514,15 @@ export default function DashboardClient() {
 
   const getWeekStart = (offset = 0) => {
     const d = new Date();
-    const day = d.getDay(); // 0=Sun, 1=Mon...
-    const diff = (day === 0 ? -6 : 1 - day); // go to Monday
+    // Use local date, not UTC
+    const localDay = d.getDay(); // 0=Sun, 1=Mon...
+    const diff = localDay === 0 ? -6 : 1 - localDay; // to Monday
     d.setDate(d.getDate() + diff + offset * 7);
-    return d.toISOString().split('T')[0];
+    // Format as YYYY-MM-DD in local time
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   };
 
   const loadWeeklyGoals = async (offset = 0) => {
@@ -516,11 +546,29 @@ export default function DashboardClient() {
     const weekStart = getWeekStart(viewingWeekOffset);
     const goal = { ...weeklyGoals[index], ...updates };
     setWeeklyGoals(prev => prev.map((g, i) => i === index ? goal : g));
-    if (viewingWeekOffset !== 0) return; // don't save past weeks
-    await supabase.from('weekly_goals').upsert(
-      { week_start: weekStart, goal_index: index, title: goal.title, notes: goal.notes, done: goal.done },
-      { onConflict: 'week_start,goal_index' }
-    );
+    if (viewingWeekOffset !== 0) return; // read-only for past weeks
+
+    const payload = {
+      week_start: weekStart,
+      goal_index: index,
+      title: goal.title,
+      notes: goal.notes,
+      done: goal.done,
+    };
+
+    // Try update first, then insert if not found
+    const { data: existing } = await supabase
+      .from('weekly_goals')
+      .select('id')
+      .eq('week_start', weekStart)
+      .eq('goal_index', index)
+      .single();
+
+    if (existing?.id) {
+      await supabase.from('weekly_goals').update(payload).eq('id', existing.id);
+    } else {
+      await supabase.from('weekly_goals').insert(payload);
+    }
   };
 
   // Vision steps
