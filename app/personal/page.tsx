@@ -759,11 +759,21 @@ function MiniTrackers({ log, update }: { log: Record<string, unknown>; update: (
   };
 
   const trackers = [
-    { label: 'Screen · PC', key: 'screen_pc_hours', unit: 'h', max: 10, color: '#6db6ff', step: 0.5, desc: 'max 10h' },
-    { label: 'Screen · Phone', key: 'screen_phone_hours', unit: 'h', max: 4, color: '#ff5d7a', step: 0.5, desc: 'max 4h' },
+    { label: 'Screen · PC', key: 'screen_pc_hours', unit: 'min', max: 600, color: '#6db6ff', step: 15, desc: 'max 10h' },
+    { label: 'Screen · Phone', key: 'screen_phone_hours', unit: 'min', max: 240, color: '#ff5d7a', step: 15, desc: 'max 4h' },
     { label: 'Angličtina', key: 'english_minutes', unit: 'min', max: 120, color: '#4ade80', step: 15, desc: '120 min' },
     { label: 'Dates', key: 'dates_minutes', unit: 'min', max: 300, color: '#a78bfa', step: 30, desc: '5h/týždeň' },
   ];
+
+  // Format minutes as "1h 15min" or "45min"
+  const fmtMin = (mins: number) => {
+    const m = Math.round(mins);
+    if (m === 0) return '0min';
+    if (m < 60) return `${m}min`;
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    return rem === 0 ? `${h}h` : `${h}h ${rem}min`;
+  };
 
   return (
     <div className="space-y-4">
@@ -805,23 +815,41 @@ function MiniTrackers({ log, update }: { log: Record<string, unknown>; update: (
       {/* Other trackers */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {trackers.map(t => {
-          const val = (log[t.key] as number) || 0;
-          const display = t.unit === 'h' ? val.toFixed(1) : val;
+          const raw = (log[t.key] as number) || 0;
+          // screen keys stored as hours historically — convert to minutes for display
+          const isScreen = t.key === 'screen_pc_hours' || t.key === 'screen_phone_hours';
+          const valMins = isScreen ? Math.round(raw * 60) : raw;
+          const displayVal = isScreen ? fmtMin(valMins) : (raw < 60 ? `${raw}min` : fmtMin(raw));
+          const pct = isScreen ? Math.min((valMins / t.max) * 100, 100) : Math.min((raw / t.max) * 100, 100);
+
+          const decrement = async () => {
+            if (isScreen) {
+              const newMins = Math.max(0, valMins - t.step);
+              await update({ [t.key]: +(newMins / 60).toFixed(4) });
+            } else {
+              await update({ [t.key]: Math.max(0, raw - t.step) });
+            }
+          };
+          const increment = async () => {
+            if (isScreen) {
+              const newMins = valMins + t.step;
+              await update({ [t.key]: +(newMins / 60).toFixed(4) });
+            } else {
+              await update({ [t.key]: raw + t.step });
+            }
+          };
+
           return (
             <div key={t.key} className="bg-bg-card border border-border rounded-2xl p-4">
               <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">{t.label}</div>
-              <div className="text-2xl font-bold tracking-[-0.025em] mb-0.5">
-                {display}<span className="text-sm text-text-dim font-semibold ml-1">{t.unit}</span>
-              </div>
+              <div className="text-xl font-bold tracking-[-0.025em] mb-0.5">{displayVal}</div>
               <div className="text-[10px] text-text-dim mb-3">{t.desc}</div>
               <div className="h-1 bg-bg-elev rounded-full overflow-hidden mb-3">
-                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min((val / t.max) * 100, 100)}%`, background: t.color }}/>
+                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: t.color }}/>
               </div>
               <div className="flex gap-1.5">
-                <button onClick={() => update({ [t.key]: Math.max(0, +(val - t.step).toFixed(1)) })}
-                  className="flex-1 bg-bg-elev rounded-lg py-1.5 text-sm font-bold hover:bg-bg-hover">−</button>
-                <button onClick={() => update({ [t.key]: +(val + t.step).toFixed(1) })}
-                  className="flex-1 bg-bg-elev rounded-lg py-1.5 text-sm font-bold hover:bg-bg-hover">+</button>
+                <button onClick={decrement} className="flex-1 bg-bg-elev rounded-lg py-1.5 text-sm font-bold hover:bg-bg-hover">−</button>
+                <button onClick={increment} className="flex-1 bg-bg-elev rounded-lg py-1.5 text-sm font-bold hover:bg-bg-hover">+</button>
               </div>
             </div>
           );

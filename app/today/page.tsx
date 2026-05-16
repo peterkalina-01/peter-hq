@@ -282,19 +282,40 @@ function WorkTimeRow({ log, update, last }: { log: Log; update: (u: Log) => void
 }
 
 // ─── SIMPLE COUNTER ROW ───────────────────────────────────────────────────────
-function CounterRow({ icon, label, logKey, unit, step, max, log, update, last, color = '#c8ff00' }: {
+function fmtMin(mins: number): string {
+  const m = Math.round(mins);
+  if (m === 0) return '0min';
+  if (m < 60) return `${m}min`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem === 0 ? `${h}h` : `${h}h ${rem}min`;
+}
+
+function CounterRow({ icon, label, logKey, unit, step, max, log, update, last, color = '#c8ff00', screenMode = false }: {
   icon: string; label: string; logKey: string; unit: string; step: number; max: number;
-  log: Log; update: (u: Log) => void; last?: boolean; color?: string;
+  log: Log; update: (u: Log) => void; last?: boolean; color?: string; screenMode?: boolean;
 }) {
-  const val = (log[logKey] as number) || 0;
-  const pct = Math.min((val / max) * 100, 100);
+  const raw = (log[logKey] as number) || 0;
+  // screenMode: raw stored as hours, display as minutes
+  const valMins = screenMode ? Math.round(raw * 60) : raw;
+  const pct = Math.min((valMins / max) * 100, 100);
+  const displayVal = screenMode ? fmtMin(valMins) : (unit === 'min' && raw >= 60 ? fmtMin(raw) : `${raw}${unit}`);
 
   const increment = async () => {
-    await update({ [logKey]: +(val + step).toFixed(1) });
+    if (screenMode) {
+      await update({ [logKey]: +((valMins + step) / 60).toFixed(4) });
+    } else {
+      await update({ [logKey]: +(raw + step).toFixed(1) });
+    }
   };
   const decrement = async () => {
-    if (val <= 0) return;
-    await update({ [logKey]: Math.max(0, +(val - step).toFixed(1)) });
+    if (screenMode) {
+      const newMins = Math.max(0, valMins - step);
+      await update({ [logKey]: +(newMins / 60).toFixed(4) });
+    } else {
+      if (raw <= 0) return;
+      await update({ [logKey]: Math.max(0, +(raw - step).toFixed(1)) });
+    }
   };
 
   return (
@@ -306,7 +327,7 @@ function CounterRow({ icon, label, logKey, unit, step, max, log, update, last, c
           <div className="flex-1 h-1 bg-bg-elev rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }}/>
           </div>
-          <span className="text-xs font-bold text-text-dim flex-shrink-0">{val}{unit}</span>
+          <span className="text-xs font-bold text-text-dim flex-shrink-0">{displayVal}</span>
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
@@ -430,8 +451,8 @@ export default function TodayPage() {
         <Section title="Večer">
           <CounterRow icon="💜" label="Dates" logKey="dates_minutes" unit="min" step={30} max={300} log={log} update={update} color="#a78bfa"/>
           <CounterRow icon="🇬🇧" label="Angličtina" logKey="english_minutes" unit="min" step={15} max={120} log={log} update={update} color="#4ade80"/>
-          <CounterRow icon="💻" label="Screen · PC" logKey="screen_pc_hours" unit="h" step={0.5} max={10} log={log} update={update} color="#6db6ff"/>
-          <CounterRow icon="📱" label="Screen · Phone" logKey="screen_phone_hours" unit="h" step={0.5} max={4} log={log} update={update} color="#ff5d7a" last/>
+          <CounterRow icon="💻" label="Screen · PC" logKey="screen_pc_hours" unit="min" step={15} max={600} log={log} update={update} color="#6db6ff" screenMode/>
+          <CounterRow icon="📱" label="Screen · Phone" logKey="screen_phone_hours" unit="min" step={15} max={240} log={log} update={update} color="#ff5d7a" last screenMode/>
         </Section>
 
         {/* ── ZHRNUTIE ── */}
