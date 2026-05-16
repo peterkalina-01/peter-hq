@@ -269,6 +269,61 @@ Do NOT break character. Do NOT say you're an AI.`,
   );
 }
 
+// ─── SCRIPT PRACTICE ─────────────────────────────────────────────────────────
+function ScriptPractice() {
+  const storageKey = `script_practice_${new Date().toISOString().split('T')[0]}`;
+
+  const [counts, setCounts] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : { setting: 0, closing: 0 };
+    } catch { return { setting: 0, closing: 0 }; }
+  });
+
+  const update = (key: 'setting' | 'closing', delta: number) => {
+    setCounts((prev: { setting: number; closing: number }) => {
+      const next = { ...prev, [key]: Math.max(0, prev[key] + delta) };
+      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const types = [
+    { key: 'setting' as const, label: 'Setting script', color: '#6db6ff', desc: 'Qualifier → Sett' },
+    { key: 'closing' as const, label: 'Closing script', color: '#ff7849', desc: 'Full 9-module' },
+  ];
+
+  return (
+    <div className="bg-bg-card border border-border rounded-2xl p-5 mb-6">
+      <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-4">Script practice · today</div>
+      <div className="grid grid-cols-2 gap-4">
+        {types.map(t => (
+          <div key={t.key} className="bg-bg-elev rounded-xl p-4">
+            <div className="text-xs font-bold mb-0.5" style={{ color: t.color }}>{t.label}</div>
+            <div className="text-[10px] text-text-dim mb-4">{t.desc}</div>
+            <div className="flex items-center justify-between">
+              <button onClick={() => update(t.key, -1)}
+                className="w-9 h-9 bg-bg-card border border-border rounded-xl text-sm font-bold text-text-dim hover:border-border-strong transition-all">−</button>
+              <div className="text-center">
+                <div className="text-3xl font-bold tracking-[-0.03em]" style={{ color: t.color }}>{counts[t.key]}</div>
+                <div className="text-[9px] text-text-dim font-semibold uppercase tracking-wider">times</div>
+              </div>
+              <button onClick={() => update(t.key, 1)}
+                className="w-9 h-9 rounded-xl text-sm font-bold text-bg transition-all hover:opacity-90"
+                style={{ background: t.color }}>+</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {(counts.setting + counts.closing) > 0 && (
+        <div className="mt-3 text-center text-xs text-text-dim">
+          Total today: <span className="font-bold text-text">{counts.setting + counts.closing}×</span> run-throughs
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SalesPage() {
   const [tab, setTab] = useState<'analyze' | 'roleplay' | 'framework'>('roleplay');
 
@@ -279,30 +334,18 @@ export default function SalesPage() {
 
         <div className="mb-6">
           <h1 className="text-3xl font-bold tracking-[-0.03em]">Sales</h1>
-          <p className="text-sm text-text-dim font-medium mt-1">Coach · Analýza callov · Roleplay</p>
+          <p className="text-sm text-text-dim font-medium mt-1">Coach · Call analysis · Roleplay</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          {[
-            { lbl: 'Close rate', val: '28%', sub: 'Posledných 30 callov' },
-            { lbl: 'Roleplay sessions', val: '7×', sub: 'Tento týždeň' },
-            { lbl: 'Script reviews', val: '12×', sub: 'Tento mesiac' },
-          ].map(s => (
-            <div key={s.lbl} className="bg-bg-card border border-border rounded-2xl p-5">
-              <div className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2">{s.lbl}</div>
-              <div className="text-2xl font-bold tracking-[-0.025em] mb-1">{s.val}</div>
-              <div className="text-xs text-text-dim font-medium">{s.sub}</div>
-            </div>
-          ))}
-        </div>
+        {/* Script Practice */}
+        <ScriptPractice />
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-bg-elev border border-border rounded-xl p-1">
           {(['roleplay', 'analyze', 'framework'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all capitalize ${tab === t ? 'bg-bg-card text-text' : 'text-text-dim hover:text-text'}`}>
-              {t === 'roleplay' ? 'Roleplay' : t === 'analyze' ? 'Analyzovať call' : 'Framework'}
+              {t === 'roleplay' ? 'Roleplay' : t === 'analyze' ? 'Analyze call' : 'Framework'}
             </button>
           ))}
         </div>
@@ -311,7 +354,7 @@ export default function SalesPage() {
         {tab === 'analyze' && <CallAnalyzer />}
         {tab === 'framework' && (
           <div className="bg-bg-card border border-border rounded-2xl p-6">
-            <h3 className="text-lg font-bold mb-5">9-modul Hormozi framework</h3>
+            <h3 className="text-lg font-bold mb-5">9-module Hormozi framework</h3>
             <div className="space-y-3">
               {FRAMEWORK.map((step, i) => (
                 <div key={i} className="flex items-start gap-4 p-4 bg-bg-elev rounded-xl">
@@ -322,7 +365,7 @@ export default function SalesPage() {
             </div>
             <div className="mt-5 p-4 bg-accent/[0.04] border border-accent/20 rounded-xl">
               <div className="text-xs font-bold text-accent mb-1">CTA rule</div>
-              <div className="text-xs font-medium text-text/80">Pre paid traffic vždy: "click Learn More below to [next step]" — nikdy organic CTA (comment, DM, link in bio)</div>
+              <div className="text-xs font-medium text-text/80">For paid traffic always: "click Learn More below to [next step]" — never organic CTA (comment, DM, link in bio)</div>
             </div>
           </div>
         )}
