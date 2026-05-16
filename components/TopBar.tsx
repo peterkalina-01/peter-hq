@@ -148,10 +148,10 @@ export default function TopBar() {
       {/* Live metrics strip */}
       <div className="flex items-center gap-1.5 px-3 md:px-6 pb-2 overflow-x-auto"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        <MetricPill value={`☕ ${metrics.caffeine}mg`} color={metrics.caffeine > 200 ? '#ff5d7a' : metrics.caffeine > 100 ? '#ff7849' : '#888894'} />
-        <MetricPill value={`Work ${metrics.workHours.toFixed(1)}h`} color="#c8ff00" />
-        <MetricPill value={metrics.workoutDone ? `✓ ${metrics.workoutType || 'Workout'}` : '○ Workout'} color={metrics.workoutDone ? '#ff7849' : '#888894'} />
-        <MetricPill value={metrics.meditationDone ? '✓ Meditácia' : '○ Meditácia'} color={metrics.meditationDone ? '#2dd4bf' : '#888894'} />
+        <MetricPill value={`☕ ${metrics.caffeine}mg`} color={metrics.caffeine > 200 ? '#ff5d7a' : metrics.caffeine > 50 ? '#ff7849' : '#6db6ff'} />
+        <MetricPill value={`💼 ${metrics.workHours.toFixed(1)}h`} color="#c8ff00" />
+        <MetricPill value={metrics.workoutDone ? `✓ ${metrics.workoutType || 'Workout'}` : '○ Workout'} color={metrics.workoutDone ? '#ff7849' : '#ff7849'} />
+        <MetricPill value={metrics.meditationDone ? '✓ Meditácia' : '○ Meditácia'} color={metrics.meditationDone ? '#2dd4bf' : '#2dd4bf'} />
         {metrics.mrr !== null && <MetricPill value={`MRR $${metrics.mrr.toLocaleString()}`} color="#c8ff00" />}
       </div>
     </div>
